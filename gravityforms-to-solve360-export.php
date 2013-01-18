@@ -4,9 +4,7 @@
  * @package Gravity Forms to Solve360 Export
  * @subpackage plugin.php
  * @version 0.1
- * @todo Make sure Curl is installed
- * @todo make sure Gravity Forms is installed
- * @todo Setup errors for Options that are required, but missing
+ * @todo Management - Setup errors for Options that are required, but missing
  * @todo Create function that hooks onto 'gform_after_submission' to retrieve necessary form data
  */
 
@@ -40,6 +38,7 @@ License: GPLv2 or later
 class GravityFormsToSolve360Export {
 
 	public $debug;
+	public $errors;
 	public $user;
 	public $token;
 	public $start_date;
@@ -71,7 +70,6 @@ class GravityFormsToSolve360Export {
 		// Register hooks that are fired when the plugin is activated, deactivated, and uninstalled, respectively.
 		register_activation_hook( __FILE__, array( $this, 'activate' ) );
 		register_deactivation_hook( __FILE__, array( $this, 'deactivate' ) );
-		register_uninstall_hook( __FILE__, array( $this, 'uninstall' ) );
 
 		// Custom functionality
 		add_action( 'admin_menu', array( $this, 'admin_pages' ) );
@@ -85,10 +83,20 @@ class GravityFormsToSolve360Export {
 	 */
 	public function activate( $network_wide ) {
 
+		// Check that is_plugin_active() function exists before using it or deactivate_plugins()
+		if ( ! function_exists('is_plugin_active' ) )
+			include_once( ABSPATH . 'wp-admin/includes/plugin.php' );
+
+		// Check Gravity Forms is installed
+		if ( ! is_plugin_active( 'gravityforms/gravityforms.php' ) ) {
+			$this->errors .= '<p><a href="#affiliate_link,">Gravity Forms</a> is not activated, and is required.</p>';
+			die( $this->errors );
+		}
+
 		// Default settings
 		$options = array(
-		                 	'gf_s360_export_debug_mode' => 'true'
-		                 );
+			'gf_s360_export_debug_mode' => 'true'
+		);
 		foreach ( $options as $option => $value ) {
 			update_option( $option, $value );
 		}
@@ -105,17 +113,6 @@ class GravityFormsToSolve360Export {
 		// TODO:	Define deactivation functionality here
 
 	} // end deactivate
-
-	/**
-	 * Fired when the plugin is uninstalled.
-	 *
-	 * @param	boolean	$network_wide	True if WPMU superadmin uses "Network Activate" action, false if WPMU is disabled or plugin is activated on an individual blog
-	 */
-	public function uninstall( $network_wide ) {
-
-		// TODO:	Define uninstall functionality here
-
-	} // end uninstall
 
 	/**
 	 * Loads the plugin text domain for translation
@@ -226,7 +223,21 @@ class GravityFormsToSolve360Export {
 	 * Helper Functions
 	 *---------------------------------------------*/
 
-	function solve360_api_request( $curlopts ) {
+	/**
+	 * Display an admin notice
+	 * @param  string $type    accepts updated|error
+	 * @param  string $message Admin notice text
+	 */
+	public function admin_notice( $type, $message ) {
+
+		if ( $type !== 'updated' || $type !== 'error' ) {
+			return false;
+		}
+		echo "<div class='$type'><p>$message</p></div>";
+
+	} // end admin_notice
+
+	public function solve360_api_request( $curlopts ) {
 
 		$ch = curl_init();
 		curl_setopt_array( $ch, $curlopts );
