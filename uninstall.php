@@ -1,0 +1,1 @@
+<?php // Uninstall code here ?>
