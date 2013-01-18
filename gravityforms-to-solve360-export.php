@@ -93,6 +93,12 @@ class GravityFormsToSolve360Export {
 			die( $this->errors );
 		}
 
+		// Check Curl is installed
+		if ( ! in_array ('curl', get_loaded_extensions() ) ) {
+			$this->errors .='<p><a href="http://php.net/manual/en/book.curl.php" target="_blank">PHP Curl</a> is not installed, and is required.</p>';
+			die( $this->errors );
+		}
+
 		// Default settings
 		$options = array(
 			'gf_s360_export_debug_mode' => 'true'
