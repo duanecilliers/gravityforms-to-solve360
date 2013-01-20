@@ -4,7 +4,6 @@
  * @package Gravity Forms to Solve360 Export
  * @subpackage plugin.php
  * @version 0.1
- * @todo Management - Setup errors for Options that are required, but missing
  * @todo Create function that hooks onto 'gform_after_submission' to retrieve necessary form data
  */
 
@@ -39,6 +38,9 @@ class GravityFormsToSolve360Export {
 
 	public $debug;
 	public $errors;
+	public $warnings;
+	public $options_url;
+	public $management_url;
 	public $user;
 	public $token;
 	public $start_date;
@@ -55,6 +57,9 @@ class GravityFormsToSolve360Export {
 	 * Initializes the plugin by setting localization, filters, and administration functions.
 	 */
 	function __construct() {
+
+		$this->options_url = admin_url( 'options-general.php?page=gf-s360-export-options' );
+		$this->management_url = admin_url( 'tools.php?page=gf-s360-export' );
 
 		// Load plugin text domain
 		add_action( 'init', array( $this, 'plugin_textdomain' ) );
@@ -176,13 +181,12 @@ class GravityFormsToSolve360Export {
 
 		// Save data
 		if ( $_POST && wp_verify_nonce( $_POST['gf_s360_export_nonce'], 'gf_s360_export_edit' ) ) {
-
 			foreach ( $accepted_fields as $accepted_field ) {
 				update_option( $accepted_field, $_POST[$accepted_field] );
 			}
-
 		}
 
+		// Include options view
 		require plugin_dir_path(__FILE__) . 'views/admin-options.php';
 
 	} // end options_page
@@ -192,14 +196,32 @@ class GravityFormsToSolve360Export {
 	 */
 	function management_page() {
 
+		// Assign options to vars
 		$this->debug = get_option( 'gf_s360_export_debug_mode' );
 		$this->user = get_option( 'gf_s360_export_user' );
 		$this->token = get_option( 'gf_s360_export_token' );
 		$this->start_date = get_option( 'gf_s360_export_start_date' );
 		$this->email_to = get_option( 'gf_s360_export_to' );
-		$this->email_from = get_option( 'gf_s360_export_from' );
+		$this->email_from = get_option( 'gf_s360_export_from' );;
 		$this->email_cc = get_option( 'gf_s360_export_cc' );
 		$this->email_bcc = get_option( 'gf_s360_export_bcc' );
+
+		// Set errors and warnings
+		if ( ! $this->user ) {
+			$this->errors .= '<div class="error"><p><strong>Error!</strong> <a href="' . $this->options_url . '">Solve360 user</a> is not set and is required!</p></div>';
+		}
+		if ( ! $this->token ) {
+			$this->errors .= '<div class="error"><p><strong>Error!</strong> <a href="' . $this->options_url . '">Solve360 token</a> is not set and is required!</p></div>';
+		}
+		if ( ! $this->email_to ) {
+			$this->warnings .= '<div class="updated"><p><strong>Warning!</strong> <a href="' . $this->options_url . '">To: field</a> for notification emails is not set.</p></div>';
+		}
+		if ( ! $this->email_from ) {
+			$this->warnings .= '<div class="updated"><p><strong>Warning!</strong> <a href="' . $this->options_url . '">From: field</a> for notification emails is not set.</p></div>';
+		}
+
+		// Include management view
+		require plugin_dir_path( __FILE__ ) . 'views/admin-management.php';
 
 	} // end gtse_export_gravity_data
 
