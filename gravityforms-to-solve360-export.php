@@ -4,7 +4,10 @@
  * @package Gravity Forms to Solve360 Export
  * @subpackage plugin.php
  * @version 0.1
- * @todo Create function that hooks onto 'gform_after_submission' to retrieve necessary form data
+ * @todo Search contacts
+ * @todo Update contact if exists, other add contact
+ * @todo If form has 'note' add an activity with contact ID
+ * @todo Test if ownership is really necessary
  */
 
 /*
@@ -41,6 +44,7 @@ class GravityFormsToSolve360Export {
 	public $warnings;
 	public $options_url;
 	public $management_url;
+	public $contacts_url;
 	public $user;
 	public $token;
 	public $start_date;
@@ -60,6 +64,15 @@ class GravityFormsToSolve360Export {
 
 		$this->options_url = admin_url( 'options-general.php?page=gf-s360-export-options' );
 		$this->management_url = admin_url( 'tools.php?page=gf-s360-export' );
+		$this->contacts_url = 'https://secure.solve360.com/contacts';
+		$this->debug = get_option( 'gf_s360_export_debug_mode' );
+		$this->user = get_option( 'gf_s360_export_user' );
+		$this->token = get_option( 'gf_s360_export_token' );
+		$this->start_date = get_option( 'gf_s360_export_start_date' );
+		$this->email_to = get_option( 'gf_s360_export_to' );
+		$this->email_from = get_option( 'gf_s360_export_from' );;
+		$this->email_cc = get_option( 'gf_s360_export_cc' );
+		$this->email_bcc = get_option( 'gf_s360_export_bcc' );
 
 		// Load plugin text domain
 		add_action( 'init', array( $this, 'plugin_textdomain' ) );
@@ -74,6 +87,9 @@ class GravityFormsToSolve360Export {
 
 		// Custom functionality
 		add_action( 'admin_menu', array( $this, 'admin_pages' ) );
+
+		// hook onto gform_subm
+		add_action( 'gform_after_submission', array( $this, 'form_submission' ), 10, 2 );
 
 	} // end constructor
 
@@ -196,16 +212,6 @@ class GravityFormsToSolve360Export {
 	 */
 	function management_page() {
 
-		// Assign options to vars
-		$this->debug = get_option( 'gf_s360_export_debug_mode' );
-		$this->user = get_option( 'gf_s360_export_user' );
-		$this->token = get_option( 'gf_s360_export_token' );
-		$this->start_date = get_option( 'gf_s360_export_start_date' );
-		$this->email_to = get_option( 'gf_s360_export_to' );
-		$this->email_from = get_option( 'gf_s360_export_from' );;
-		$this->email_cc = get_option( 'gf_s360_export_cc' );
-		$this->email_bcc = get_option( 'gf_s360_export_bcc' );
-
 		// Set errors and warnings
 		if ( ! $this->user ) {
 			$this->errors .= '<div class="error"><p><strong>Error!</strong> <a href="' . $this->options_url . '">Solve360 user</a> is not set and is required!</p></div>';
@@ -224,6 +230,179 @@ class GravityFormsToSolve360Export {
 		require plugin_dir_path( __FILE__ ) . 'views/admin-management.php';
 
 	} // end gtse_export_gravity_data
+
+	function form_submission( $entry, $form ) {
+
+		// Get form fields
+		$fields = $form['fields'];
+		$contact_inner_xml = '';
+
+		foreach ( $fields as $field ) {
+
+			// Assign label and value
+			if ( $field['type'] === 'hidden' ) {
+				$label = $field['label'];
+				$value = $field['defaultValue'];
+			} else {
+				$label = $field['adminLabel'];
+				$value = $entry[$field['id']];
+			}
+
+			// Format inner XML
+			if ( stripos( $label, 'solve360' ) !== false ) {
+
+				$label_sep = explode(' ', $label, 3);
+				$solve_field = $label_sep[1];
+
+				if ( strtolower($solve_field) === 'businessemail' ) {
+					$businessemail  = $value;
+				}
+
+				require plugin_dir_path( __FILE__ ) . 'includes/inner-xml.php';
+
+			} // end if ( stripos( $label, 'solve360' ) !== false )
+
+		} // end foreach ( $fields as $field )
+
+		$contact_inner_xml .= "<categories><add>$category_xml</add></categories>";
+
+		/**
+		 * Setup the contact's XML string
+		 * EG: <name>firstname</name> when viewing the link below would translate to <firstname> in the $xml string.
+		 * @link https://secure.solve360.com/contacts/fields/ Available Fields
+		 * @var string
+		 */
+		$contact_xml = "<request>$contact_inner_xml</request>";
+
+		if ( $this->debug ) {
+			echo '<h2>Contact XML</h2>';
+			echo $contact_xml;
+		}
+
+		/**
+		 * Search Contacts for any matching email address using GET
+		 * @link http://norada.com/norada/crm/external_api_reference_contacts External API Reference Contacts
+		 * >> terminal command example below, enter "curl --help" for parameter reference <<
+		 * curl -u '{user}:{token}' -v -X GET -H 'Content-Type: application/xml' -o 'result.xml' -d '<request><layout>1</layout><filtermode>byemail</filtermode><filtervalue>{email}</filtervalue></request>' https://secure.solve360.com/contacts
+		 */
+
+		$search_xml = "<request>
+							<layout>1</layout>
+							<filtermode>byemail</filtermode>
+							<filtervalue>$businessemail</filtervalue>
+						</request>";
+
+		$curl = curl_init( $this->contacts_url );
+		$options = array(
+						CURLOPT_RETURNTRANSFER => true,
+						CURLOPT_USERPWD => $this->user .':'. $this->token,
+						CURLOPT_HTTPHEADER => array('Content-Type: application/xml'),
+						CURLOPT_CUSTOMREQUEST => 'GET',
+						CURLOPT_POSTFIELDS => $search_xml
+					);
+		curl_setopt_array( $curl, $options );
+		$response = curl_exec( $curl );
+		$search_results = new SimpleXmlElement( $response );
+		curl_close( $curl );
+
+		if ( $this->debug ) {
+			echo '<h2>Search Results:</h2><pre>';
+			print_r($search_results);
+			echo '</pre>';
+		}
+
+		/**
+		 * if there are matching results update contact, otherwise add the contact
+		 */
+		if ( (integer) $search_results->count >= 1 ) {
+
+			$contact_id = current( $search_results )->id;
+
+			echo ( $this->debug ) ? "<h2>Updating Contact</h2>" : '' ;
+
+			/**
+			 * Update contact
+			 * @link http://norada.com/norada/crm/external_api_reference_contacts External API Reference Contacts
+			 * >> terminal command example below, enter "curl --help" for parameter reference <<
+			 * curl -u '{user}:{token}' -X PUT -H 'Content-Type: application/xml' -d '<request><businessemail>{business_email}</businessemail><categories><add><category>{category_id}</category></add></categories></request>' https://secure.solve360.com/contacts/{contact_id}
+			 */
+			$curl = curl_init();
+			curl_setopt_array($curl, array(
+				CURLOPT_RETURNTRANSFER => true,
+				CURLOPT_USERPWD => $this->user .':'. $this->token,
+				CURLOPT_URL => $this->contacts_url . "/$contact_id",
+				CURLOPT_HTTPHEADER => array('Content-Type: application/xml'),
+				CURLOPT_POST => true,
+				CURLOPT_CUSTOMREQUEST => 'PUT',
+				CURLOPT_POSTFIELDS => $contact_xml
+			));
+			// Check if any error occured
+			if ( curl_errno( $curl ) ) {
+				echo 'Curl error: ' . curl_error($curl);
+			}
+			// Send the request & save response to $resp
+			$resp = curl_exec($curl);
+			$formatted_response = new SimpleXmlElement($resp);
+			// Close request to clear up some resources
+			curl_close($curl);
+
+			if ( $this->debug ) {
+				echo '<h2>Response: </h2><pre>';
+				print_r($formatted_response);
+				echo '</pre>';
+			}
+
+		}
+		else {
+
+			echo ( $this->debug ) ? "<h2>Adding Contact</h2>" : '' ;
+
+			/**
+			 * Create Contact using POST
+			 * @link http://norada.com/norada/crm/external_api_reference_contacts External API Reference Contacts
+			 * >> terminal command example below, enter "curl --help" for parameter reference <<
+			 * curl -u '{user}:{token}' -v -X GET -H 'Content-Type: application/xml' -o 'result.xml' -d '<request><layout>1</layout><filtermode>byemail</filtermode><filtervalue>{email}</filtervalue></request>' https://secure.solve360.com/contacts
+			 */
+
+			// Get cURL resource
+			$curl = curl_init();
+			curl_setopt_array($curl, array(
+				CURLOPT_RETURNTRANSFER => true,
+				CURLOPT_USERPWD => $this->user .':'. $this->token,
+				CURLOPT_URL => $this->contacts_url,
+				CURLOPT_HTTPHEADER => array('Content-Type: application/xml'),
+				CURLOPT_POST => true,
+				CURLOPT_POSTFIELDS => $contact_xml
+			));
+			// Check if any error occured
+			if ( curl_errno( $curl ) ) {
+				echo 'Curl error: ' . curl_error($curl);
+			}
+			// Send the request & save response to $resp
+			$resp = curl_exec($curl);
+			$formatted_response = new SimpleXmlElement($resp);
+			// Close request to clear up some resources
+			curl_close($curl);
+
+			if ( $this->debug ) {
+				echo '<pre>';
+				print_r($formatted_response);
+				echo '</pre>';
+			}
+
+		}
+
+		echo '<pre>';
+		print_r($entry);
+		echo '</pre>';
+
+		echo '<pre>';
+		print_r($form);
+		echo '</pre>';
+
+		die();
+
+	}
 
 	/*--------------------------------------------*
 	 * Helper Functions
