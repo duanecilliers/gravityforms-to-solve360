@@ -6,7 +6,7 @@
  * @version 0.1
  * @todo Search contacts
  * @todo Update contact if exists, other add contact
- * @todo If form has 'note' add an activity with contact ID
+ * @todo Search labels for activities and add the activity with contact ID
  * @todo Test if ownership is really necessary
  */
 
@@ -214,16 +214,16 @@ class GravityFormsToSolve360Export {
 
 		// Set errors and warnings
 		if ( ! $this->user ) {
-			$this->errors .= '<div class="error"><p><strong>Error!</strong> <a href="' . $this->options_url . '">Solve360 user</a> is not set and is required!</p></div>';
+			$this->errors .= $this->admin_notice( 'error', '<strong>Error!</strong> <a href="' . $this->options_url . '">Solve360 user</a> is not set and is required!' );
 		}
 		if ( ! $this->token ) {
-			$this->errors .= '<div class="error"><p><strong>Error!</strong> <a href="' . $this->options_url . '">Solve360 token</a> is not set and is required!</p></div>';
+			$this->errors .= $this->admin_notice( 'error', '<strong>Error!</strong> <a href="' . $this->options_url . '">Solve360 token</a> is not set and is required!' );
 		}
 		if ( ! $this->email_to ) {
-			$this->warnings .= '<div class="updated"><p><strong>Warning!</strong> <a href="' . $this->options_url . '">To: field</a> for notification emails is not set.</p></div>';
+			$this->warnings .= $this->admin_notice( 'updated', '<strong>Warning!</strong> <a href="' . $this->options_url . '">To: field</a> for notification emails is not set.' );
 		}
 		if ( ! $this->email_from ) {
-			$this->warnings .= '<div class="updated"><p><strong>Warning!</strong> <a href="' . $this->options_url . '">From: field</a> for notification emails is not set.</p></div>';
+			$this->warnings .= $this->admin_notice( 'updated', '<strong>Warning!</strong> <a href="' . $this->options_url . '">From: field</a> for notification emails is not set.' );
 		}
 
 		// Include management view
@@ -231,6 +231,11 @@ class GravityFormsToSolve360Export {
 
 	} // end gtse_export_gravity_data
 
+	/**
+	 * When a gform is submitted, Update/Create contact and add Activities if any exist
+	 * @param  object $entry The entry that was just created.
+	 * @param  object $form  The current form.
+	 */
 	function form_submission( $entry, $form ) {
 
 		// Get form fields
@@ -291,19 +296,15 @@ class GravityFormsToSolve360Export {
 							<filtermode>byemail</filtermode>
 							<filtervalue>$businessemail</filtervalue>
 						</request>";
-
-		$curl = curl_init( $this->contacts_url );
 		$options = array(
 						CURLOPT_RETURNTRANSFER => true,
 						CURLOPT_USERPWD => $this->user .':'. $this->token,
+						CURLOPT_URL => $this->contacts_url,
 						CURLOPT_HTTPHEADER => array('Content-Type: application/xml'),
 						CURLOPT_CUSTOMREQUEST => 'GET',
 						CURLOPT_POSTFIELDS => $search_xml
 					);
-		curl_setopt_array( $curl, $options );
-		$response = curl_exec( $curl );
-		$search_results = new SimpleXmlElement( $response );
-		curl_close( $curl );
+		$search_results = $this->solve360_api_request( $options );
 
 		if ( $this->debug ) {
 			echo '<h2>Search Results:</h2><pre>';
@@ -326,8 +327,7 @@ class GravityFormsToSolve360Export {
 			 * >> terminal command example below, enter "curl --help" for parameter reference <<
 			 * curl -u '{user}:{token}' -X PUT -H 'Content-Type: application/xml' -d '<request><businessemail>{business_email}</businessemail><categories><add><category>{category_id}</category></add></categories></request>' https://secure.solve360.com/contacts/{contact_id}
 			 */
-			$curl = curl_init();
-			curl_setopt_array($curl, array(
+			$options = array(
 				CURLOPT_RETURNTRANSFER => true,
 				CURLOPT_USERPWD => $this->user .':'. $this->token,
 				CURLOPT_URL => $this->contacts_url . "/$contact_id",
@@ -335,20 +335,12 @@ class GravityFormsToSolve360Export {
 				CURLOPT_POST => true,
 				CURLOPT_CUSTOMREQUEST => 'PUT',
 				CURLOPT_POSTFIELDS => $contact_xml
-			));
-			// Check if any error occured
-			if ( curl_errno( $curl ) ) {
-				echo 'Curl error: ' . curl_error($curl);
-			}
-			// Send the request & save response to $resp
-			$resp = curl_exec($curl);
-			$formatted_response = new SimpleXmlElement($resp);
-			// Close request to clear up some resources
-			curl_close($curl);
+			);
+			$update_response = $this->solve360_api_request( $options );
 
 			if ( $this->debug ) {
-				echo '<h2>Response: </h2><pre>';
-				print_r($formatted_response);
+				echo '<h2>Update Results:</h2><pre>';
+				print_r($update_response);
 				echo '</pre>';
 			}
 
@@ -363,30 +355,19 @@ class GravityFormsToSolve360Export {
 			 * >> terminal command example below, enter "curl --help" for parameter reference <<
 			 * curl -u '{user}:{token}' -v -X GET -H 'Content-Type: application/xml' -o 'result.xml' -d '<request><layout>1</layout><filtermode>byemail</filtermode><filtervalue>{email}</filtervalue></request>' https://secure.solve360.com/contacts
 			 */
-
-			// Get cURL resource
-			$curl = curl_init();
-			curl_setopt_array($curl, array(
+			$options = array(
 				CURLOPT_RETURNTRANSFER => true,
 				CURLOPT_USERPWD => $this->user .':'. $this->token,
 				CURLOPT_URL => $this->contacts_url,
 				CURLOPT_HTTPHEADER => array('Content-Type: application/xml'),
 				CURLOPT_POST => true,
 				CURLOPT_POSTFIELDS => $contact_xml
-			));
-			// Check if any error occured
-			if ( curl_errno( $curl ) ) {
-				echo 'Curl error: ' . curl_error($curl);
-			}
-			// Send the request & save response to $resp
-			$resp = curl_exec($curl);
-			$formatted_response = new SimpleXmlElement($resp);
-			// Close request to clear up some resources
-			curl_close($curl);
+			);
+			$add_response = $this->solve360_api_request( $options );
 
 			if ( $this->debug ) {
-				echo '<pre>';
-				print_r($formatted_response);
+				echo '<h2>Add Results:</h2><pre>';
+				print_r($add_response);
 				echo '</pre>';
 			}
 
@@ -432,18 +413,10 @@ class GravityFormsToSolve360Export {
 		}
 		// Send the request & save response to $resp
 		$resp = curl_exec($ch);
-		$formatted_response = new SimpleXmlElement($resp);
+		$xml_response = new SimpleXmlElement($resp);
 		// Close request to clear up some resources
 		curl_close($ch);
-
-		if ( $this->debug ) {
-			echo '<h2>Response: </h2><pre>';
-			print_r($formatted_response);
-			echo '</pre>';
-		}
-		else {
-			// TODO: Display contact that was added
-		}
+		return $xml_response;
 
 	}
 
