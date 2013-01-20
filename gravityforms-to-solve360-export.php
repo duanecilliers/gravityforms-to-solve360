@@ -63,10 +63,6 @@ class GravityFormsToSolve360Export {
 		add_action( 'admin_print_styles', array( $this, 'register_admin_styles' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'register_admin_scripts' ) );
 
-		// Register site styles and scripts
-		add_action( 'wp_enqueue_scripts', array( $this, 'register_plugin_styles' ) );
-		add_action( 'wp_enqueue_scripts', array( $this, 'register_plugin_scripts' ) );
-
 		// Register hooks that are fired when the plugin is activated, deactivated, and uninstalled, respectively.
 		register_activation_hook( __FILE__, array( $this, 'activate' ) );
 		register_deactivation_hook( __FILE__, array( $this, 'deactivate' ) );
@@ -147,24 +143,6 @@ class GravityFormsToSolve360Export {
 		wp_enqueue_script( 'gf-to-solve360-export-admin-script', plugins_url( 'js/admin.js', __FILE__ ) );
 
 	} // end register_admin_scripts
-
-	/**
-	 * Registers and enqueues plugin-specific styles.
-	 */
-	public function register_plugin_styles() {
-
-		wp_enqueue_style( 'gf-to-solve360-export-plugin-styles', plugins_url( 'css/display.css', __FILE__ ) );
-
-	} // end register_plugin_styles
-
-	/**
-	 * Registers and enqueues plugin-specific scripts.
-	 */
-	public function register_plugin_scripts() {
-
-		wp_enqueue_script( 'gf-to-solve360-export-plugin-script', plugins_url( 'js/display.js', __FILE__ ) );
-
-	} // end register_plugin_scripts
 
 	/*--------------------------------------------*
 	 * Core Functions
