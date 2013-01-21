@@ -4,10 +4,8 @@
  * @package Gravity Forms to Solve360 Export
  * @subpackage plugin.php
  * @version 0.1
- * @todo Search contacts
- * @todo Update contact if exists, other add contact
- * @todo Search labels for activities and add the activity with contact ID
- * @todo Test if ownership is really necessary
+ * @todo Search labels for activities and add the activity with contact ID (first check if the activity exists, update if it does, otherwise add it)
+ * @todo Investigate when 'ownership' is required
  */
 
 /*
@@ -241,23 +239,26 @@ class GravityFormsToSolve360Export {
 		// Get form fields
 		$fields = $form['fields'];
 		$contact_inner_xml = '';
+		$category_xml = '';
+		$new_note_array = array();
 
 		foreach ( $fields as $field ) {
 
 			// Assign label and value
 			if ( $field['type'] === 'hidden' ) {
-				$label = $field['label'];
-				$value = $field['defaultValue'];
+				$label = isset( $field['label'] ) ? $field['label'] : '' ;
+				$value = isset( $field['defaultValue'] ) ? $field['defaultValue'] : '' ;
 			} else {
-				$label = $field['adminLabel'];
-				$value = $entry[$field['id']];
+				$label = isset( $field['adminLabel'] ) ? $field['adminLabel'] : '' ;
+				$value = isset( $entry[$field['id']] ) ? $entry[$field['id']] : '' ;
 			}
 
 			// Format inner XML
 			if ( stripos( $label, 'solve360' ) !== false ) {
 
 				$label_sep = explode(' ', $label, 3);
-				$solve_field = $label_sep[1];
+				$solve_field = isset( $label_sep[1] ) ? $label_sep[1] : '' ;
+				$solve_field_ref = isset( $label_sep[2] ) ? $label_sep[2] : '' ;
 
 				if ( strtolower($solve_field) === 'businessemail' ) {
 					$businessemail  = $value;
@@ -305,7 +306,6 @@ class GravityFormsToSolve360Export {
 						CURLOPT_POSTFIELDS => $search_xml
 					);
 		$search_results = $this->solve360_api_request( $options );
-
 		if ( $this->debug ) {
 			echo '<h2>Search Results:</h2><pre>';
 			print_r($search_results);
@@ -337,7 +337,6 @@ class GravityFormsToSolve360Export {
 				CURLOPT_POSTFIELDS => $contact_xml
 			);
 			$update_response = $this->solve360_api_request( $options );
-
 			if ( $this->debug ) {
 				echo '<h2>Update Results:</h2><pre>';
 				print_r($update_response);
@@ -364,14 +363,114 @@ class GravityFormsToSolve360Export {
 				CURLOPT_POSTFIELDS => $contact_xml
 			);
 			$add_response = $this->solve360_api_request( $options );
-
 			if ( $this->debug ) {
 				echo '<h2>Add Results:</h2><pre>';
 				print_r($add_response);
 				echo '</pre>';
 			}
 
+			$contact_id = ( $add_response->status == 'success' ) ? $add_response->item->id : '' ;
+
 		}
+
+		/**
+		 * Add Activities
+		 */
+		if ( $contact_id ) {
+
+			// Search contact Activities
+			$options = array(
+						CURLOPT_RETURNTRANSFER => true,
+						CURLOPT_USERPWD => $this->user .':'. $this->token,
+						CURLOPT_URL => "$this->contacts_url/$contact_id",
+						CURLOPT_HTTPHEADER => array('Content-Type: application/xml'),
+						CURLOPT_CUSTOMREQUEST => 'GET'
+					);
+			$contact_response = $this->solve360_api_request( $options );
+			if ( $this->debug ) {
+				echo '<h2>Contact Response:</h2><pre>';
+				print_r($contact_response);
+				echo '</pre>';
+			}
+			$contact_activities = isset( $contact_response->activities ) ? $contact_response->activities : '' ;
+
+			if ( $contact_activities ) {
+
+				$note_array = array();
+
+				foreach ( $contact_activities as $activity ) {
+					switch ($activity->typeid) {
+						case 1:
+							$has_linkedemails = true;
+							break;
+						case 3:
+							$has_note = true;
+							$existing_note_array[] = $activity->name;
+							break;
+						default:
+							# code...
+							break;
+					}
+
+				} // end foreach ( $contact_activities as $activity )
+
+			} // end if ( $contact_activities )
+
+			// Add a view for linked emails activity if it doesn't already exist
+			if ( ! $has_linkedemails ) {
+				$linkedemails_xml = "<request><parent>$contact_id</parent></request>";
+				$options = array(
+					CURLOPT_RETURNTRANSFER => true,
+					CURLOPT_USERPWD => $this->user .':'. $this->token,
+					CURLOPT_URL => $this->contacts_url . '/linkedemails',
+					CURLOPT_HTTPHEADER => array('Content-Type: application/xml'),
+					CURLOPT_POST => true,
+					CURLOPT_POSTFIELDS => $linkedemails_xml
+				);
+				$linked_emails_response = $this->solve360_api_request( $options );
+				if ( $this->debug ) {
+					echo '<h2>linkedemails response:</h2><pre>';
+					print_r($linked_emails_response);
+					echo '</pre>';
+				}
+			} // end if ( ! $has_linkedemails )
+
+			// Check if Activity Note exists. Update
+			if ( $new_note_array ) {
+
+				if ( $existing_note_array ) {
+					$combined_note_array = array_merge( $new_note_array, $existing_note_array );
+					$note_array = $this->remove_duplicates( $combined_note_array );
+				} else {
+					$note_array = $new_note_array;
+				}
+
+				echo 'Note array: <pre>';
+					print_r($note_array);
+					echo '</pre>';
+
+				foreach ( $note_array as $note ) {
+					$options = array(
+						CURLOPT_RETURNTRANSFER => true,
+						CURLOPT_USERPWD => $this->user .':'. $this->token,
+						CURLOPT_URL => $this->contacts_url . '/note',
+						CURLOPT_HTTPHEADER => array('Content-Type: application/xml'),
+						CURLOPT_POST => true,
+						CURLOPT_POSTFIELDS => "<request><parent>$contact_id</parent><data><details>$note</details></data></request>"
+					);
+					$note_response = $this->solve360_api_request( $options );
+					if ( $this->debug ) {
+						echo '<h2>Note Activity response:</h2><pre>';
+						print_r($note_response);
+						echo '</pre>';
+					}
+				}
+
+			}
+
+		}
+
+		echo "continuing<br>";
 
 		echo '<pre>';
 		print_r($entry);
@@ -388,6 +487,27 @@ class GravityFormsToSolve360Export {
 	/*--------------------------------------------*
 	 * Helper Functions
 	 *---------------------------------------------*/
+
+	/**
+	 * Remove both duplicates form an array
+	 * @param  array $array The array to remove duplicates from
+	 * @return array        The new array
+	 */
+	public function remove_duplicates($array) {
+
+		$valueCount = array();
+		foreach ($array as $value) {
+			$valueCount[$value]++;
+		}
+		$return = array();
+			foreach ($valueCount as $value => $count) {
+			if ( $count == 1 ) {
+				$return[] = $value;
+			}
+		}
+		return $return;
+
+	}
 
 	/**
 	 * Display an admin notice

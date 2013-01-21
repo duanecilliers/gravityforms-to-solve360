@@ -1,6 +1,9 @@
 <?php
 
 	switch ( strtolower($solve_field) ) {
+
+	// ---- Begin Contact Fields ----
+
 		case 'ownership':
 			$contact_inner_xml .= "<ownership>$value</ownership>";
 			break;
@@ -69,6 +72,18 @@
 			break;
 		case 'category':
 			$category_xml .= "<category>$value</category>";
+			break;
+
+	// ---- End Contact Fields ----
+
+	// ---- Begin Activity Fields ----
+
+		case 'note' :
+			$new_note_array[] = "$solve_field_ref: $value";
+			break;
+
+	// ---- End Activity Fields ----
+
 		default:
 			# code...
 			break;
