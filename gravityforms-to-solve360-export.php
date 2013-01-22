@@ -258,53 +258,6 @@ class GravityFormsToSolve360Export {
 
 	} // end form_submission( $entry, $form )
 
-	/*--------------------------------------------*
-	 * Helper Functions
-	 *---------------------------------------------*/
-
-	/**
-	 * [run_in_background description]
-	 * @param  [type]  $command  [description]
-	 * @param  integer $priority [description]
-	 * @return [type]            [description]
-	 */
-	public function run_in_background( $command, $priority = 0 ) {
-
-		if ( $priority ) {
-			$PID = shell_exec( "nohup nice -n $priority $command 2> /dev/null & echo $!" );
-		} else {
-			$PID = shell_exec( "nohup $command 2> /dev/null & echo $!" );
-		}
-		return( $PID );
-
-	} // end run_in_background( $command, $priority = 0 )
-
-	/**
-	 * [is_process_running description]
-	 * @param  [type]  $PID [description]
-	 * @return boolean      [description]
-	 */
-	public function is_process_running( $PID ) {
-
-		exec( "ps $PID", $ProcessState );
-		return( count( $ProcessState ) >= 2 );
-
-	} // end is_process_running( $PID )
-
-	/**
-	 * Display an admin notice
-	 * @param  string $type    accepts updated|error
-	 * @param  string $message Admin notice text
-	 */
-	public function admin_notice( $type, $message ) {
-
-		if ( $type !== 'updated' || $type !== 'error' ) {
-			return false;
-		}
-		echo "<div id='message' class='$type'><p>$message</p></div>";
-
-	} // end admin_notice( $type, $message )
-
 } // end class
 
 $gravity_forms_to_solve360_export = new GravityFormsToSolve360Export();
