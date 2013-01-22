@@ -4,7 +4,6 @@
 	 * @package Gravity Forms to Solve360 Export
 	 * @subpackage process-form-data.php
 	 * @version 0.1
-	 * @todo Investigate when 'ownership' is required
 	 */
 
 	/**
@@ -28,28 +27,6 @@
 		return $xml_response;
 
 	} // end solve360_api_request( $curlopts )
-
-	/**
-	 * Remove both duplicates form an array
-	 * @param  array $array The array to remove duplicates from
-	 * @link http://stackoverflow.com/questions/3691369/how-can-i-remove-all-duplicates-from-an-array-in-php Remove both duplicates from an array
-	 * @return array        The new array
-	 */
-	function remove_duplicates($array) {
-
-		$valueCount = array();
-		foreach ($array as $value) {
-			$valueCount[$value]++;
-		}
-		$return = array();
-			foreach ($valueCount as $value => $count) {
-			if ( $count == 1 ) {
-				$return[] = $value;
-			}
-		}
-		return $return;
-
-	} // end remove_duplicates($array)
 
 	$entry_file = $argv[1];
 	$form_file = $argv[2];
