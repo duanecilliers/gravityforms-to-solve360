@@ -11,7 +11,7 @@
 	 * @param  array $curlopts Curl Options
 	 * @return XML        Response
 	 */
-	function solve360_api_request( $curlopts ) {
+	function curl_request( $curlopts ) {
 
 		$ch = curl_init();
 		curl_setopt_array( $ch, $curlopts );
@@ -26,7 +26,7 @@
 		curl_close($ch);
 		return $xml_response;
 
-	} // end solve360_api_request( $curlopts )
+	} // end curl_request( $curlopts )
 
 	$entry_file = $argv[1];
 	$form_file = $argv[2];
@@ -112,7 +112,7 @@
 					CURLOPT_CUSTOMREQUEST => 'GET',
 					CURLOPT_POSTFIELDS => $search_xml
 				);
-	$search_results = solve360_api_request( $options );
+	$search_results = curl_request( $options );
 	if ( $debug ) {
 		$message .= '<h2>Contact Search Results:</h2><pre>' . print_r($search_results, true) . '</pre>';
 	}
@@ -139,7 +139,7 @@
 			CURLOPT_CUSTOMREQUEST => 'PUT',
 			CURLOPT_POSTFIELDS => $contact_xml
 		);
-		$update_response = solve360_api_request( $options );
+		$update_response = curl_request( $options );
 		if ( $debug ) {
 			$message .= '<h2>Contact Exists, Update Results:</h2><pre>' . print_r($update_response, true) . '</pre>';
 		}
@@ -161,7 +161,7 @@
 			CURLOPT_POST => true,
 			CURLOPT_POSTFIELDS => $contact_xml
 		);
-		$add_response = solve360_api_request( $options );
+		$add_response = curl_request( $options );
 		if ( $debug ) {
 			$message .= '<h2>Contact doesn\'t exist, Add Results:</h2><pre>' . print_r($add_response, true) . '</pre>';
 		}
@@ -189,7 +189,7 @@
 					CURLOPT_HTTPHEADER => array('Content-Type: application/xml'),
 					CURLOPT_CUSTOMREQUEST => 'GET'
 				);
-		$contact_response = solve360_api_request( $options );
+		$contact_response = curl_request( $options );
 		if ( $debug ) {
 			$message .= '<h2>Contact search:</h2><pre>' . print_r($contact_response, true) . '</pre>';
 		}
@@ -249,7 +249,7 @@
 				CURLOPT_POST => true,
 				CURLOPT_POSTFIELDS => $linkedemails_xml
 			);
-			$linked_emails_response = solve360_api_request( $options );
+			$linked_emails_response = curl_request( $options );
 			if ( $debug ) {
 				$message .='<h2>linkedemails response:</h2><pre>' . print_r($linked_emails_response, true) . '</pre>';
 			}
@@ -302,7 +302,7 @@
 						CURLOPT_POST => true,
 						CURLOPT_POSTFIELDS => "<request><parent>$contact_id</parent><data><details>$note</details></data></request>"
 					);
-					$note_response = solve360_api_request( $options );
+					$note_response = curl_request( $options );
 					if ( $debug ) {
 						echo '<h2>Note Activity response:</h2><pre>' . print_r($note_response, true) . '</pre>';
 					}
