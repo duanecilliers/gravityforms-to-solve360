@@ -5,7 +5,8 @@
  * @subpackage plugin.php
  * @version 0.1
  * @todo Search labels for activities and add the activity with contact ID (first check if the activity exists, update if it does, otherwise add it)
- * @todo Investigate when 'ownership' is required
+ * @todo Investigate when 'ownership' is required (not required)
+ * @todo pass plugin filename with shell_exec for use in process-form-data.php
  */
 
 /*
@@ -37,6 +38,8 @@ License: GPLv2 or later
 
 class GravityFormsToSolve360Export {
 
+	public $plugin_data;
+	public $plugin_filename;
 	public $debug;
 	public $errors;
 	public $warnings;
@@ -84,6 +87,7 @@ class GravityFormsToSolve360Export {
 		register_deactivation_hook( __FILE__, array( $this, 'deactivate' ) );
 
 		// Custom functionality
+		add_action( 'admin_init', array( $this, 'admin_init' ) );
 		add_action( 'admin_menu', array( $this, 'admin_pages' ) );
 
 		// hook onto gform_subm
@@ -167,6 +171,21 @@ class GravityFormsToSolve360Export {
 	 * Core Functions
 	 *---------------------------------------------*/
 
+	public function admin_init() {
+
+		/**
+		 * The plugins data
+		 * @var array
+		 */
+		$this->plugin_data = get_plugins( '/' . plugin_basename( dirname( __FILE__ ) ) );
+		reset( $this->plugin_data );
+		/**
+		 * The plugin filename
+		 * @var string
+		 */
+		$this->plugin_filename = key( $this->plugin_data );
+	}
+
 	/**
 	 * Create admin pages
 	 */
@@ -236,261 +255,64 @@ class GravityFormsToSolve360Export {
 	 */
 	function form_submission( $entry, $form ) {
 
-		// Get form fields
-		$fields = $form['fields'];
-		$contact_inner_xml = '';
-		$category_xml = '';
-		$new_note_array = array();
+		// Serialize $entry object and place contents in file
+		$entry = serialize($entry);
+		$entry_filename = plugin_dir_path( __FILE__ ) . 'entries/entry-string-' . time() . '.txt';
+		file_put_contents( $entry_filename, $entry );
 
-		foreach ( $fields as $field ) {
+		// Serialize $form object and place contents in file
+		$form = serialize($form);
+		$form_filename = plugin_dir_path( __FILE__ ) . 'entries/form-string-' . time() . '.txt';
+		file_put_contents( $form_filename, $form);
 
-			// Assign label and value
-			if ( $field['type'] === 'hidden' ) {
-				$label = isset( $field['label'] ) ? $field['label'] : '' ;
-				$value = isset( $field['defaultValue'] ) ? $field['defaultValue'] : '' ;
-			} else {
-				$label = isset( $field['adminLabel'] ) ? $field['adminLabel'] : '' ;
-				$value = isset( $entry[$field['id']] ) ? $entry[$field['id']] : '' ;
-			}
+		// $plugin_filename = $this->plugin_filename;
 
-			// Format inner XML
-			if ( stripos( $label, 'solve360' ) !== false ) {
+		// Initiate background process
+		ini_set('error_reporting', E_ALL);
+		$process_file = plugin_dir_path( __FILE__ ) . 'includes/process-form-data.php';
+		$background_process = shell_exec( "php $process_file $entry_filename $form_filename " . $this->user . " " . $this->token . " " . $this->contacts_url . " " . $this->debug ." > /dev/null 2>/dev/null &" );
 
-				$label_sep = explode(' ', $label, 3);
-				$solve_field = isset( $label_sep[1] ) ? $label_sep[1] : '' ;
-				$solve_field_ref = isset( $label_sep[2] ) ? $label_sep[2] : '' ;
+		die('testing...');
 
-				if ( strtolower($solve_field) === 'businessemail' ) {
-					$businessemail  = $value;
-				}
-
-				require plugin_dir_path( __FILE__ ) . 'includes/inner-xml.php';
-
-			} // end if ( stripos( $label, 'solve360' ) !== false )
-
-		} // end foreach ( $fields as $field )
-
-		$contact_inner_xml .= "<categories><add>$category_xml</add></categories>";
-
-		/**
-		 * Setup the contact's XML string
-		 * EG: <name>firstname</name> when viewing the link below would translate to <firstname> in the $xml string.
-		 * @link https://secure.solve360.com/contacts/fields/ Available Fields
-		 * @var string
-		 */
-		$contact_xml = "<request>$contact_inner_xml</request>";
-
-		if ( $this->debug ) {
-			echo '<h2>Contact XML</h2>';
-			echo $contact_xml;
-		}
-
-		/**
-		 * Search Contacts for any matching email address using GET
-		 * @link http://norada.com/norada/crm/external_api_reference_contacts External API Reference Contacts
-		 * >> terminal command example below, enter "curl --help" for parameter reference <<
-		 * curl -u '{user}:{token}' -v -X GET -H 'Content-Type: application/xml' -o 'result.xml' -d '<request><layout>1</layout><filtermode>byemail</filtermode><filtervalue>{email}</filtervalue></request>' https://secure.solve360.com/contacts
-		 */
-
-		$search_xml = "<request>
-							<layout>1</layout>
-							<filtermode>byemail</filtermode>
-							<filtervalue>$businessemail</filtervalue>
-						</request>";
-		$options = array(
-						CURLOPT_RETURNTRANSFER => true,
-						CURLOPT_USERPWD => $this->user .':'. $this->token,
-						CURLOPT_URL => $this->contacts_url,
-						CURLOPT_HTTPHEADER => array('Content-Type: application/xml'),
-						CURLOPT_CUSTOMREQUEST => 'GET',
-						CURLOPT_POSTFIELDS => $search_xml
-					);
-		$search_results = $this->solve360_api_request( $options );
-		if ( $this->debug ) {
-			echo '<h2>Search Results:</h2><pre>';
-			print_r($search_results);
-			echo '</pre>';
-		}
-
-		/**
-		 * if there are matching results update contact, otherwise add the contact
-		 */
-		if ( (integer) $search_results->count >= 1 ) {
-
-			$contact_id = current( $search_results )->id;
-
-			echo ( $this->debug ) ? "<h2>Updating Contact</h2>" : '' ;
-
-			/**
-			 * Update contact
-			 * @link http://norada.com/norada/crm/external_api_reference_contacts External API Reference Contacts
-			 * >> terminal command example below, enter "curl --help" for parameter reference <<
-			 * curl -u '{user}:{token}' -X PUT -H 'Content-Type: application/xml' -d '<request><businessemail>{business_email}</businessemail><categories><add><category>{category_id}</category></add></categories></request>' https://secure.solve360.com/contacts/{contact_id}
-			 */
-			$options = array(
-				CURLOPT_RETURNTRANSFER => true,
-				CURLOPT_USERPWD => $this->user .':'. $this->token,
-				CURLOPT_URL => $this->contacts_url . "/$contact_id",
-				CURLOPT_HTTPHEADER => array('Content-Type: application/xml'),
-				CURLOPT_POST => true,
-				CURLOPT_CUSTOMREQUEST => 'PUT',
-				CURLOPT_POSTFIELDS => $contact_xml
-			);
-			$update_response = $this->solve360_api_request( $options );
-			if ( $this->debug ) {
-				echo '<h2>Update Results:</h2><pre>';
-				print_r($update_response);
-				echo '</pre>';
-			}
-
-		}
-		else {
-
-			echo ( $this->debug ) ? "<h2>Adding Contact</h2>" : '' ;
-
-			/**
-			 * Create Contact using POST
-			 * @link http://norada.com/norada/crm/external_api_reference_contacts External API Reference Contacts
-			 * >> terminal command example below, enter "curl --help" for parameter reference <<
-			 * curl -u '{user}:{token}' -v -X GET -H 'Content-Type: application/xml' -o 'result.xml' -d '<request><layout>1</layout><filtermode>byemail</filtermode><filtervalue>{email}</filtervalue></request>' https://secure.solve360.com/contacts
-			 */
-			$options = array(
-				CURLOPT_RETURNTRANSFER => true,
-				CURLOPT_USERPWD => $this->user .':'. $this->token,
-				CURLOPT_URL => $this->contacts_url,
-				CURLOPT_HTTPHEADER => array('Content-Type: application/xml'),
-				CURLOPT_POST => true,
-				CURLOPT_POSTFIELDS => $contact_xml
-			);
-			$add_response = $this->solve360_api_request( $options );
-			if ( $this->debug ) {
-				echo '<h2>Add Results:</h2><pre>';
-				print_r($add_response);
-				echo '</pre>';
-			}
-
-			$contact_id = ( $add_response->status == 'success' ) ? $add_response->item->id : '' ;
-
-		}
-
-		/**
-		 * Add Activities
-		 */
-		if ( $contact_id ) {
-
-			// Search contact Activities
-			$options = array(
-						CURLOPT_RETURNTRANSFER => true,
-						CURLOPT_USERPWD => $this->user .':'. $this->token,
-						CURLOPT_URL => "$this->contacts_url/$contact_id",
-						CURLOPT_HTTPHEADER => array('Content-Type: application/xml'),
-						CURLOPT_CUSTOMREQUEST => 'GET'
-					);
-			$contact_response = $this->solve360_api_request( $options );
-			if ( $this->debug ) {
-				echo '<h2>Contact Response:</h2><pre>';
-				print_r($contact_response);
-				echo '</pre>';
-			}
-			$contact_activities = isset( $contact_response->activities ) ? $contact_response->activities : '' ;
-
-			if ( $contact_activities ) {
-
-				$note_array = array();
-
-				foreach ( $contact_activities as $activity ) {
-					switch ($activity->typeid) {
-						case 1:
-							$has_linkedemails = true;
-							break;
-						case 3:
-							$has_note = true;
-							$existing_note_array[] = $activity->name;
-							break;
-						default:
-							# code...
-							break;
-					}
-
-				} // end foreach ( $contact_activities as $activity )
-
-			} // end if ( $contact_activities )
-
-			// Add a view for linked emails activity if it doesn't already exist
-			if ( ! $has_linkedemails ) {
-				$linkedemails_xml = "<request><parent>$contact_id</parent></request>";
-				$options = array(
-					CURLOPT_RETURNTRANSFER => true,
-					CURLOPT_USERPWD => $this->user .':'. $this->token,
-					CURLOPT_URL => $this->contacts_url . '/linkedemails',
-					CURLOPT_HTTPHEADER => array('Content-Type: application/xml'),
-					CURLOPT_POST => true,
-					CURLOPT_POSTFIELDS => $linkedemails_xml
-				);
-				$linked_emails_response = $this->solve360_api_request( $options );
-				if ( $this->debug ) {
-					echo '<h2>linkedemails response:</h2><pre>';
-					print_r($linked_emails_response);
-					echo '</pre>';
-				}
-			} // end if ( ! $has_linkedemails )
-
-			// Check if Activity Note exists. Update
-			if ( $new_note_array ) {
-
-				if ( $existing_note_array ) {
-					$combined_note_array = array_merge( $new_note_array, $existing_note_array );
-					$note_array = $this->remove_duplicates( $combined_note_array );
-				} else {
-					$note_array = $new_note_array;
-				}
-
-				echo 'Note array: <pre>';
-					print_r($note_array);
-					echo '</pre>';
-
-				foreach ( $note_array as $note ) {
-					$options = array(
-						CURLOPT_RETURNTRANSFER => true,
-						CURLOPT_USERPWD => $this->user .':'. $this->token,
-						CURLOPT_URL => $this->contacts_url . '/note',
-						CURLOPT_HTTPHEADER => array('Content-Type: application/xml'),
-						CURLOPT_POST => true,
-						CURLOPT_POSTFIELDS => "<request><parent>$contact_id</parent><data><details>$note</details></data></request>"
-					);
-					$note_response = $this->solve360_api_request( $options );
-					if ( $this->debug ) {
-						echo '<h2>Note Activity response:</h2><pre>';
-						print_r($note_response);
-						echo '</pre>';
-					}
-				}
-
-			}
-
-		}
-
-		echo "continuing<br>";
-
-		echo '<pre>';
-		print_r($entry);
-		echo '</pre>';
-
-		echo '<pre>';
-		print_r($form);
-		echo '</pre>';
-
-		die();
-
-	}
+	} // end form_submission( $entry, $form )
 
 	/*--------------------------------------------*
 	 * Helper Functions
 	 *---------------------------------------------*/
 
 	/**
+	 * [run_in_background description]
+	 * @param  [type]  $command  [description]
+	 * @param  integer $priority [description]
+	 * @return [type]            [description]
+	 */
+	public function run_in_background( $command, $priority = 0 ) {
+
+		if ( $priority ) {
+			$PID = shell_exec( "nohup nice -n $priority $command 2> /dev/null & echo $!" );
+		} else {
+			$PID = shell_exec( "nohup $command 2> /dev/null & echo $!" );
+		}
+		return( $PID );
+
+	} // end run_in_background( $command, $priority = 0 )
+
+	/**
+	 * [is_process_running description]
+	 * @param  [type]  $PID [description]
+	 * @return boolean      [description]
+	 */
+	public function is_process_running( $PID ) {
+
+		exec( "ps $PID", $ProcessState );
+		return( count( $ProcessState ) >= 2 );
+
+	} // end is_process_running( $PID )
+
+	/**
 	 * Remove both duplicates form an array
 	 * @param  array $array The array to remove duplicates from
+	 * @link http://stackoverflow.com/questions/3691369/how-can-i-remove-all-duplicates-from-an-array-in-php Remove both duplicates from an array
 	 * @return array        The new array
 	 */
 	public function remove_duplicates($array) {
@@ -507,7 +329,7 @@ class GravityFormsToSolve360Export {
 		}
 		return $return;
 
-	}
+	} // end remove_duplicates($array)
 
 	/**
 	 * Display an admin notice
@@ -521,24 +343,7 @@ class GravityFormsToSolve360Export {
 		}
 		echo "<div class='$type'><p>$message</p></div>";
 
-	} // end admin_notice
-
-	public function solve360_api_request( $curlopts ) {
-
-		$ch = curl_init();
-		curl_setopt_array( $ch, $curlopts );
-		// Check if any error occured
-		if ( curl_errno( $ch ) ) {
-			echo 'Curl error: ' . curl_error($ch);
-		}
-		// Send the request & save response to $resp
-		$resp = curl_exec($ch);
-		$xml_response = new SimpleXmlElement($resp);
-		// Close request to clear up some resources
-		curl_close($ch);
-		return $xml_response;
-
-	}
+	} // end admin_notice( $type, $message )
 
 } // end class
 
