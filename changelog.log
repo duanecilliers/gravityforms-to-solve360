@@ -4,3 +4,4 @@
 -> Start changelog
 -> Create 'entries' directory for temp files if it doesn't already exist
 -> Rename temporary files with data format that's more readable
+-> Moved configuration errors to admin_notices hook

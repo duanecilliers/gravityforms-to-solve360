@@ -6,7 +6,8 @@
  * @version 0.1
  * @todo Investigate when 'ownership' is required (not required)
  * @todo Cleanup code
- * @todo Only delete temp files if there were no Solve errors
+ * @todo Improve error handling, create two levels.. status errors and developer errors for debugging
+ * @todo Only delete temp files if there were no Solve response errors
  */
 
 /*
@@ -48,7 +49,6 @@ class GravityFormsToSolve360Export {
 	public $contacts_url;
 	public $user;
 	public $token;
-	public $start_date;
 	public $email_to;
 	public $email_from;
 	public $email_cc;
@@ -91,6 +91,7 @@ class GravityFormsToSolve360Export {
 
 		// Custom functionality
 		add_action( 'admin_menu', array( $this, 'admin_pages' ) );
+		add_action( 'admin_notices', array( $this, 'admin_notices' ) );
 
 		// hook onto gform_subm
 		add_action( 'gform_after_submission', array( $this, 'form_submission' ), 10, 2 );
@@ -104,13 +105,13 @@ class GravityFormsToSolve360Export {
 	 */
 	public function activate( $network_wide ) {
 
-		// Check Gravity Forms is installed
+		// Ensure Gravity Forms is installed
 		if ( ! is_plugin_active( 'gravityforms/gravityforms.php' ) ) {
 			$this->errors .= '<p><a href="#affiliate_link,">Gravity Forms</a> is not activated, and is required.</p>';
 			die( $this->errors );
 		}
 
-		// Check Curl is installed
+		// Ensure Curl is installed
 		if ( ! in_array ('curl', get_loaded_extensions() ) ) {
 			$this->errors .='<p><a href="http://php.net/manual/en/book.curl.php" target="_blank">PHP Curl</a> is not installed, and is required.</p>';
 			die( $this->errors );
@@ -170,12 +171,32 @@ class GravityFormsToSolve360Export {
 	 *---------------------------------------------*/
 
 	/**
+	 * Display configuration errors on all admin pages
+	 */
+	function admin_notices() {
+
+		// Set errors and warnings
+		if ( ! $this->user ) {
+			echo '<div id="message" class="error"><p><strong>Error!</strong> <a href="' . $this->options_url . '">Solve360 user</a> is not set and is required!</p></div>';
+		}
+		if ( ! $this->token ) {
+			echo '<div id="message" class="error"><p><strong>Error!</strong> <a href="' . $this->options_url . '">Solve360 token</a> is not set and is required!</p></div>';
+		}
+		if ( ! $this->email_to ) {
+			echo '<div id="message" class="updated"><p><strong>Warning!</strong> <a href="' . $this->options_url . '">To: field</a> for notification emails is not set.</p></div>';
+		}
+		if ( ! $this->email_from ) {
+			echo '<div id="message" class="updated"><p><strong>Warning!</strong> <a href="' . $this->options_url . '">From: field</a> for notification emails is not set.</p></div>';
+		}
+
+	} // end admin_notices()
+
+	/**
 	 * Create admin pages
 	 */
 	function admin_pages() {
 
 		add_options_page( 'Gravity Forms to Solve360 Export', 'Gravity Forms to Solve360 Export', 'manage_options', 'gf-s360-export-options', array( $this, 'options_page' ) );
-		add_management_page( 'Gravity Forms to Solve360 Export', 'Gravity Forms to Solve360 Export', 'manage_options', 'gf-s360-export', array( $this, 'management_page' ) );
 
 	} // end admin_pages
 
@@ -205,34 +226,6 @@ class GravityFormsToSolve360Export {
 		require plugin_dir_path(__FILE__) . 'views/admin-options.php';
 
 	} // end options_page
-
-	/**
-	 * Create management page
-	 */
-	function management_page() {
-
-		// echo '<pre>';
-		// print_r($this->plugin_data);
-		// echo '</pre>';
-
-		// Set errors and warnings
-		if ( ! $this->user ) {
-			$this->errors .= $this->admin_notice( 'error', '<strong>Error!</strong> <a href="' . $this->options_url . '">Solve360 user</a> is not set and is required!' );
-		}
-		if ( ! $this->token ) {
-			$this->errors .= $this->admin_notice( 'error', '<strong>Error!</strong> <a href="' . $this->options_url . '">Solve360 token</a> is not set and is required!' );
-		}
-		if ( ! $this->email_to ) {
-			$this->warnings .= $this->admin_notice( 'updated', '<strong>Warning!</strong> <a href="' . $this->options_url . '">To: field</a> for notification emails is not set.' );
-		}
-		if ( ! $this->email_from ) {
-			$this->warnings .= $this->admin_notice( 'updated', '<strong>Warning!</strong> <a href="' . $this->options_url . '">From: field</a> for notification emails is not set.' );
-		}
-
-		// Include management view
-		require plugin_dir_path( __FILE__ ) . 'views/admin-management.php';
-
-	} // end gtse_export_gravity_data
 
 	/**
 	 * Run main script as a background process when a form is submitted
@@ -308,7 +301,7 @@ class GravityFormsToSolve360Export {
 		if ( $type !== 'updated' || $type !== 'error' ) {
 			return false;
 		}
-		echo "<div class='$type'><p>$message</p></div>";
+		echo "<div id='message' class='$type'><p>$message</p></div>";
 
 	} // end admin_notice( $type, $message )
 
