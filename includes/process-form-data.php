@@ -28,6 +28,7 @@
 
 	} // end curl_request( $curlopts )
 
+	// Assign shell_exec arguments to variables
 	$entry_file = $argv[1];
 	$form_file = $argv[2];
 	$user = $argv[3];

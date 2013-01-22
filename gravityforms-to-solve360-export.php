@@ -6,7 +6,7 @@
  * @version 0.1
  * @todo Investigate when 'ownership' is required (not required)
  * @todo Cleanup code
- * @todo Improve error handling, create two levels.. status errors and developer errors for debugging
+ * @todo Improve error handling, create two levels.. config errors and advanced errors for debugging
  * @todo Only delete temp files if there were no Solve response errors
  * @todo Investigate when 'ownership' is required
  * @todo Handle other Solve360 contact activities appropriately
