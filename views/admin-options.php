@@ -29,16 +29,6 @@
 				&nbsp; <label for="gf_s360_export_debug_mode_disabled">Off</label> &nbsp; &nbsp;
 			</td>
 		</tr>
-		<tr>
-
-			<td>
-				<label for="gf_s360_export_start_date">Override Start Date</label>
-			</td>
-			<td>
-				<input type="text" class="regular-text" name="gf_s360_export_start_date" id="gf_s360_export_start_date" value="<?php echo get_option('gf_s360_export_start_date'); ?>" />
-				Current Start Date: <?php echo get_option('gf_s360_export_last_export_date'); ?>
-			</td>
-		</tr>
 
 		<tr>
 			<td>

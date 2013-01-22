@@ -6,7 +6,8 @@
  * @version 0.1
  * @todo Search labels for activities and add the activity with contact ID (first check if the activity exists, update if it does, otherwise add it)
  * @todo Investigate when 'ownership' is required (not required)
- * @todo pass plugin filename with shell_exec for use in process-form-data.php
+ * @todo Cleanup code
+ * @todo Create Entries directory if it doesn't exist
  */
 
 /*
@@ -69,11 +70,14 @@ class GravityFormsToSolve360Export {
 		$this->debug = get_option( 'gf_s360_export_debug_mode' );
 		$this->user = get_option( 'gf_s360_export_user' );
 		$this->token = get_option( 'gf_s360_export_token' );
-		$this->start_date = get_option( 'gf_s360_export_start_date' );
 		$this->email_to = get_option( 'gf_s360_export_to' );
 		$this->email_from = get_option( 'gf_s360_export_from' );;
 		$this->email_cc = get_option( 'gf_s360_export_cc' );
 		$this->email_bcc = get_option( 'gf_s360_export_bcc' );
+
+		// Check that is_plugin_active() function exists before using it or deactivate_plugins()
+		if ( ! function_exists('is_plugin_active' ) )
+			include_once( ABSPATH . 'wp-admin/includes/plugin.php' );
 
 		// Load plugin text domain
 		add_action( 'init', array( $this, 'plugin_textdomain' ) );
@@ -87,7 +91,6 @@ class GravityFormsToSolve360Export {
 		register_deactivation_hook( __FILE__, array( $this, 'deactivate' ) );
 
 		// Custom functionality
-		add_action( 'admin_init', array( $this, 'admin_init' ) );
 		add_action( 'admin_menu', array( $this, 'admin_pages' ) );
 
 		// hook onto gform_subm
@@ -101,10 +104,6 @@ class GravityFormsToSolve360Export {
 	 * @param	boolean	$network_wide	True if WPMU superadmin uses "Network Activate" action, false if WPMU is disabled or plugin is activated on an individual blog
 	 */
 	public function activate( $network_wide ) {
-
-		// Check that is_plugin_active() function exists before using it or deactivate_plugins()
-		if ( ! function_exists('is_plugin_active' ) )
-			include_once( ABSPATH . 'wp-admin/includes/plugin.php' );
 
 		// Check Gravity Forms is installed
 		if ( ! is_plugin_active( 'gravityforms/gravityforms.php' ) ) {
@@ -171,21 +170,6 @@ class GravityFormsToSolve360Export {
 	 * Core Functions
 	 *---------------------------------------------*/
 
-	public function admin_init() {
-
-		/**
-		 * The plugins data
-		 * @var array
-		 */
-		$this->plugin_data = get_plugins( '/' . plugin_basename( dirname( __FILE__ ) ) );
-		reset( $this->plugin_data );
-		/**
-		 * The plugin filename
-		 * @var string
-		 */
-		$this->plugin_filename = key( $this->plugin_data );
-	}
-
 	/**
 	 * Create admin pages
 	 */
@@ -203,7 +187,6 @@ class GravityFormsToSolve360Export {
 
 		$accepted_fields = array(
 			'gf_s360_export_debug_mode',
-			'gf_s360_export_start_date',
 			'gf_s360_export_user',
 			'gf_s360_export_token',
 			'gf_s360_export_to',
@@ -229,6 +212,10 @@ class GravityFormsToSolve360Export {
 	 */
 	function management_page() {
 
+		// echo '<pre>';
+		// print_r($this->plugin_data);
+		// echo '</pre>';
+
 		// Set errors and warnings
 		if ( ! $this->user ) {
 			$this->errors .= $this->admin_notice( 'error', '<strong>Error!</strong> <a href="' . $this->options_url . '">Solve360 user</a> is not set and is required!' );
@@ -249,23 +236,25 @@ class GravityFormsToSolve360Export {
 	} // end gtse_export_gravity_data
 
 	/**
-	 * When a gform is submitted, Update/Create contact and add Activities if any exist
+	 * Run main script as a background process when a form is submitted
 	 * @param  object $entry The entry that was just created.
 	 * @param  object $form  The current form.
 	 */
 	function form_submission( $entry, $form ) {
 
-		// Serialize $entry object and place contents in file
+		// Create entries directory if it doesn't already exist
+		if ( ! is_dir( plugin_dir_path( __FILE__ ) . 'entries' ) )
+			mkdir( plugin_dir_path( __FILE__ ) . 'entries' );
+
+		// Serialize $entry object and place contents in temp file
 		$entry = serialize($entry);
 		$entry_filename = plugin_dir_path( __FILE__ ) . 'entries/entry-string-' . time() . '.txt';
 		file_put_contents( $entry_filename, $entry );
 
-		// Serialize $form object and place contents in file
+		// Serialize $form object and place contents in temp file
 		$form = serialize($form);
 		$form_filename = plugin_dir_path( __FILE__ ) . 'entries/form-string-' . time() . '.txt';
 		file_put_contents( $form_filename, $form);
-
-		// $plugin_filename = $this->plugin_filename;
 
 		// Initiate background process
 		ini_set('error_reporting', E_ALL);
@@ -308,28 +297,6 @@ class GravityFormsToSolve360Export {
 		return( count( $ProcessState ) >= 2 );
 
 	} // end is_process_running( $PID )
-
-	/**
-	 * Remove both duplicates form an array
-	 * @param  array $array The array to remove duplicates from
-	 * @link http://stackoverflow.com/questions/3691369/how-can-i-remove-all-duplicates-from-an-array-in-php Remove both duplicates from an array
-	 * @return array        The new array
-	 */
-	public function remove_duplicates($array) {
-
-		$valueCount = array();
-		foreach ($array as $value) {
-			$valueCount[$value]++;
-		}
-		$return = array();
-			foreach ($valueCount as $value => $count) {
-			if ( $count == 1 ) {
-				$return[] = $value;
-			}
-		}
-		return $return;
-
-	} // end remove_duplicates($array)
 
 	/**
 	 * Display an admin notice
