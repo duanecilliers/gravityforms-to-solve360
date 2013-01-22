@@ -1,0 +1,6 @@
+/**
+ * 22/01/2013
+ */
+-> Start changelog
+-> Create 'entries' directory for temp files if it doesn't already exist
+-> Rename temporary files with data format that's more readable

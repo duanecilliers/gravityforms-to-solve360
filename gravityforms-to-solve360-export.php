@@ -4,10 +4,9 @@
  * @package Gravity Forms to Solve360 Export
  * @subpackage plugin.php
  * @version 0.1
- * @todo Search labels for activities and add the activity with contact ID (first check if the activity exists, update if it does, otherwise add it)
  * @todo Investigate when 'ownership' is required (not required)
  * @todo Cleanup code
- * @todo Create Entries directory if it doesn't exist
+ * @todo Only delete temp files if there were no Solve errors
  */
 
 /*
@@ -242,26 +241,27 @@ class GravityFormsToSolve360Export {
 	 */
 	function form_submission( $entry, $form ) {
 
+		// Assign variables
+		$entries_dir = plugin_dir_path( __FILE__ ) . 'entries';
+		$date = date('Y-m-d-H:i:s');
+
 		// Create entries directory if it doesn't already exist
-		if ( ! is_dir( plugin_dir_path( __FILE__ ) . 'entries' ) )
-			mkdir( plugin_dir_path( __FILE__ ) . 'entries' );
+		if ( ! is_dir( $entries_dir ) )
+			mkdir( $entries_dir );
 
 		// Serialize $entry object and place contents in temp file
 		$entry = serialize($entry);
-		$entry_filename = plugin_dir_path( __FILE__ ) . 'entries/entry-string-' . time() . '.txt';
+		$entry_filename = "$entries_dir/entry-string-$date.txt";
 		file_put_contents( $entry_filename, $entry );
 
 		// Serialize $form object and place contents in temp file
 		$form = serialize($form);
-		$form_filename = plugin_dir_path( __FILE__ ) . 'entries/form-string-' . time() . '.txt';
+		$form_filename = "$entries_dir/form-string-$date.txt";
 		file_put_contents( $form_filename, $form);
 
 		// Initiate background process
-		ini_set('error_reporting', E_ALL);
 		$process_file = plugin_dir_path( __FILE__ ) . 'includes/process-form-data.php';
 		$background_process = shell_exec( "php $process_file $entry_filename $form_filename " . $this->user . " " . $this->token . " " . $this->contacts_url . " " . $this->debug ." > /dev/null 2>/dev/null &" );
-
-		die('testing...');
 
 	} // end form_submission( $entry, $form )
 
