@@ -337,7 +337,7 @@
 	/**
 	 * Email Notifications
 	 */
-	mail( $email_to, $notification_subject, $notification_message );
+	mail( $email_to, $notification_subject, $notification_message, $headers );
 
 	/**
 	 * Delete entry and form objects files
