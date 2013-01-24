@@ -34,7 +34,7 @@
 	$user = $argv[3];
 	$token = $argv[4];
 	$contacts_url = $argv[5];
-	$debug = $argv[6];
+	$debug = ( $argv[6] == 'true' ) ? true : false ;
 
 	/**
 	 * Email variables
@@ -145,6 +145,14 @@
 			$message .= '<h2>Contact Exists, Update Results:</h2><pre>' . print_r($update_response, true) . '</pre>';
 		}
 
+		if ( $update_response->status == 'success' ) {
+			$notification_subject = "Solve360 Contact $firstname $lastname Updated";
+			$notification_message = "https://secure.solve360.com/contact/$contact_id";
+		} else {
+			$notification_subject = "Error Solve360 Contact $firstname $lastname Not Updated";
+			$notification_message = print_r($update_response->errors, true);
+		}
+
 	}
 	else {
 
@@ -168,6 +176,15 @@
 		}
 
 		$contact_id = ( $add_response->status == 'success' ) ? $add_response->item->id : '' ;
+
+		if ( $add_response->status == 'success' ) {
+			$notification_subject = "Solve360 Contact $firstname $lastname Added";
+			$notification_message = "https://secure.solve360.com/contact/$contact_id";
+		} else {
+			$notification_subject = "Error Solve360 Contact $firstname $lastname Not Added";
+			$notification_message = print_r($add_response->errors, true);
+		}
+
 
 	}
 
@@ -313,6 +330,11 @@
 		} // end if ( $new_note_array )
 
 	} // end if ( $contact_id )
+
+	/**
+	 * Email Notifications
+	 */
+	mail( 'duane@signpost.co.za', $notification_subject, $notification_message );
 
 	/**
 	 * Delete entry and form objects files
