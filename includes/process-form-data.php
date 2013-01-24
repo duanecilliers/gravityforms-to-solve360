@@ -28,30 +28,20 @@
 
 	} // end curl_request( $curlopts )
 
-	// Assign shell_exec arguments to variables
-	$entry_file = $argv[1];
-	$form_file = $argv[2];
-	$user = $argv[3];
-	$token = $argv[4];
-	$contacts_url = $argv[5];
-	$email_to = $argv[6];
-	$email_from = $argv[7];
-	$email_cc = $argv[8];
-	$email_bcc = $argv[9];
-	$debug = ( $argv[10] == 'true' ) ? true : false ;
+	$filename = $argv[1];
+	$args = unserialize( file_get_contents( $filename) );
 
-	/**
-	 * Email variables
-	 */
-	$to = 'duane@signpost.co.za';
-	$from = '10X Dev <info@10x.dev>';
+	$entry = unserialize( $args['entry'] );
+	$form = unserialize( $args['form'] );
+	$user = $args['user'];
+	$token = $args['token'];
+	$contacts_url = $args['contacts_url'];
+	$email_to = $args['to'];
+	$email_from = $args['from'];
+	$email_cc = $args['cc'];
+	$email_bcc = $args['bcc'];
+	$debug = ( $args['debug'] == 'true' ) ? true : false ;
 	$message = '';
-
-	$entry = unserialize( file_get_contents( $entry_file ) );
-	$form = unserialize( file_get_contents( $form_file ) );
-
-	$debug_entry = print_r( $entry, true );
-	$debug_form = print_r( $form, true );
 
 	// Get form fields
 	$fields = $form['fields'];
@@ -352,8 +342,7 @@
 	/**
 	 * Delete entry and form objects files
 	 */
-	unlink( $entry_file );
-	unlink( $form_file );
+	unlink( $filename );
 
 	/**
 	 * Debug with email as the script runs in the background, output can't be seen on screen
@@ -361,6 +350,9 @@
 
 	if ( $debug ) {
 		// To send HTML mail, the Content-type header must be set
+
+		$debug_entry = print_r( $entry, true );
+		$debug_form = print_r( $form, true );
 
 		$message .= "<h2>Entry: </h2><pre>$debug_entry</pre>";
 		$message .= "<h2>Form: </h2><pre>$debug_form</pre>";

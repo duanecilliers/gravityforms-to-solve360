@@ -4,9 +4,8 @@
  * @package Gravity Forms to Solve360 Export
  * @subpackage plugin.php
  * @version 0.1
- * @todo Investigate when 'ownership' is required (not required)
  * @todo Cleanup code
- * @todo Improve error handling, create two levels.. config errors and advanced errors for debugging
+ * @todo Improve error handling
  * @todo Only delete temp files if there were no Solve response errors
  * @todo Investigate when 'ownership' is required
  * @todo Handle other Solve360 contact activities appropriately
@@ -103,7 +102,7 @@ class GravityFormsToSolve360Export {
 	/**
 	 * Fired when the plugin is activated.
 	 *
-	 * @param	boolean	$network_wide	True if WPMU superadmin uses "Network Activate" action, false if WPMU is disabled or plugin is activated on an individual blog
+	 * @param boolean $network_wide True if WPMU superadmin uses "Network Activate" action, false if WPMU is disabled or plugin is activated on an individual blog
 	 */
 	public function activate( $network_wide ) {
 
@@ -132,11 +131,11 @@ class GravityFormsToSolve360Export {
 	/**
 	 * Fired when the plugin is deactivated.
 	 *
-	 * @param	boolean	$network_wide	True if WPMU superadmin uses "Network Activate" action, false if WPMU is disabled or plugin is activated on an individual blog
+	 * @param boolean $network_wide True if WPMU superadmin uses "Network Activate" action, false if WPMU is disabled or plugin is activated on an individual blog
 	 */
 	public function deactivate( $network_wide ) {
 
-		// TODO:	Define deactivation functionality here
+		// TODO:  Define deactivation functionality here
 
 	} // end deactivate
 
@@ -237,22 +236,38 @@ class GravityFormsToSolve360Export {
 	function form_submission( $entry, $form ) {
 
 		// Assign variables
-		$entries_dir = plugin_dir_path( __FILE__ ) . 'entries';
+		$temp_dir = plugin_dir_path( __FILE__ ) . 'temp';
 		$date = date('Y-m-d-H:i:s');
 
-		// Create entries directory if it doesn't already exist
-		if ( ! is_dir( $entries_dir ) )
-			mkdir( $entries_dir );
+		// Create temp directory if it doesn't already exist
+		if ( ! is_dir( $temp_dir ) )
+			mkdir( $temp_dir );
 
-		// Serialize $entry object and place contents in temp file
 		$entry = serialize($entry);
-		$entry_filename = "$entries_dir/entry-string-$date.txt";
-		file_put_contents( $entry_filename, $entry );
-
-		// Serialize $form object and place contents in temp file
 		$form = serialize($form);
-		$form_filename = "$entries_dir/form-string-$date.txt";
-		file_put_contents( $form_filename, $form);
+		$user = isset( $this->user ) ? $this->user : false ;
+		$token = isset( $this->token ) ? $this->token : false ;
+		$contacts_url = isset( $this->contacts_url ) ? $this->contacts_url : false ;
+		$to = isset( $this->email_to ) ? $this->email_to : false ;
+		$from = isset( $this->email_from ) ? $this->email_from : false ;
+		$cc = isset( $this->email_cc ) ? $this->email_cc : false ;
+		$bcc = isset( $this->email_bcc ) ? $this->email_bcc : false ;
+		$debug = $this->debug;
+
+		$args = serialize( array(
+	                  		'entry' => $entry,
+	                  		'form' => $form,
+					'user' => $user,
+					'token' => $token,
+					'contacts_url' => $contacts_url,
+					'to' => $to,
+					'from' => $from,
+					'cc' => $cc,
+					'bcc' => $bcc,
+					'debug' => $debug
+				) );
+		$filename = "$temp_dir/temp-$date.txt";
+		file_put_contents( $filename, $args );
 
 		// Shorten variables
 		$user = isset( $this->user ) ? $this->user : false ;
@@ -266,7 +281,7 @@ class GravityFormsToSolve360Export {
 
 		// Initiate background process
 		$process_file = plugin_dir_path( __FILE__ ) . 'includes/process-form-data.php';
-		$background_process = shell_exec( "php $process_file $entry_filename $form_filename $user $token $contacts_url $debug > /dev/null 2>/dev/null &" );
+		$background_process = shell_exec( "php $process_file $filename > /dev/null 2>/dev/null &" );
 
 	} // end form_submission( $entry, $form )
 
