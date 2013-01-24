@@ -34,7 +34,11 @@
 	$user = $argv[3];
 	$token = $argv[4];
 	$contacts_url = $argv[5];
-	$debug = ( $argv[6] == 'true' ) ? true : false ;
+	$email_to = $argv[6];
+	$email_from = $argv[7];
+	$email_cc = $argv[8];
+	$email_bcc = $argv[9];
+	$debug = ( $argv[10] == 'true' ) ? true : false ;
 
 	/**
 	 * Email variables
@@ -331,10 +335,19 @@
 
 	} // end if ( $contact_id )
 
+	// Set email headers
+	$headers  = 'MIME-Version: 1.0' . "\r\n";
+	$headers .= 'Content-type: text/html; charset=iso-8859-1' . "\r\n";
+
+	// Additional headers
+	$headers .= "From: $email_from" . "\r\n";
+	$headers .= "CC: $email_cc" . "\r\n";
+	$headers .= "BCC: $email_bcc" . "\r\n";
+
 	/**
 	 * Email Notifications
 	 */
-	mail( 'duane@signpost.co.za', $notification_subject, $notification_message );
+	mail( $email_to, $notification_subject, $notification_message );
 
 	/**
 	 * Delete entry and form objects files
@@ -348,18 +361,12 @@
 
 	if ( $debug ) {
 		// To send HTML mail, the Content-type header must be set
-		$headers  = 'MIME-Version: 1.0' . "\r\n";
-		$headers .= 'Content-type: text/html; charset=iso-8859-1' . "\r\n";
-
-		// Additional headers
-		$headers .= 'To: Duane <duane@signpost.co.za>' . "\r\n";
-		$headers .= 'From: 10X Dev<info@10x.dev>' . "\r\n";
 
 		$message .= "<h2>Entry: </h2><pre>$debug_entry</pre>";
 		$message .= "<h2>Form: </h2><pre>$debug_form</pre>";
 
 		// Mail it
-		mail('duane@signpost.co.za', 'Objects', $message, $headers);
+		mail( $email_to, 'Debug Responses', $message, $headers);
 	}
 
 
