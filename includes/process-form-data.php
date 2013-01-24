@@ -29,25 +29,21 @@
 	} // end curl_request( $curlopts )
 
 	// Assign shell_exec arguments to variables
-	$entry_file = $argv[1];
-	$form_file = $argv[2];
-	$user = $argv[3];
-	$token = $argv[4];
-	$contacts_url = $argv[5];
-	$debug = ( $argv[6] == 'true' ) ? true : false ;
 
-	/**
-	 * Email variables
-	 */
-	$to = 'duane@signpost.co.za';
-	$from = '10X Dev <info@10x.dev>';
+	$filename = $argv[1];
+	$args = unserialize( file_get_contents( $filename) );
+
+	$entry = unserialize( $args['entry'] );
+	$form = unserialize( $args['form'] );
+	$user = $args['user'];
+	$token = $args['token'];
+	$contacts_url = $args['contacts_url'];
+	$email_to = $args['to'];
+	$email_from = $args['from'];
+	$email_cc = $args['cc'];
+	$email_bcc = $args['bcc'];
+	$debug = ( $args['debug'] == 'true' ) ? true : false ;
 	$message = '';
-
-	$entry = unserialize( file_get_contents( $entry_file ) );
-	$form = unserialize( file_get_contents( $form_file ) );
-
-	$debug_entry = print_r( $entry, true );
-	$debug_form = print_r( $form, true );
 
 	// Get form fields
 	$fields = $form['fields'];
@@ -331,16 +327,24 @@
 
 	} // end if ( $contact_id )
 
+	// Set email headers
+	$headers  = 'MIME-Version: 1.0' . "\r\n";
+	$headers .= 'Content-type: text/html; charset=iso-8859-1' . "\r\n";
+
+	// Additional headers
+	$headers .= "From: $email_from" . "\r\n";
+	$headers .= "CC: $email_cc" . "\r\n";
+	$headers .= "BCC: $email_bcc" . "\r\n";
+
 	/**
 	 * Email Notifications
 	 */
-	mail( 'duane@signpost.co.za', $notification_subject, $notification_message );
+	mail( $email_to, $notification_subject, $notification_message );
 
 	/**
 	 * Delete entry and form objects files
 	 */
-	unlink( $entry_file );
-	unlink( $form_file );
+	unlink( $filename );
 
 	/**
 	 * Debug with email as the script runs in the background, output can't be seen on screen
@@ -348,18 +352,15 @@
 
 	if ( $debug ) {
 		// To send HTML mail, the Content-type header must be set
-		$headers  = 'MIME-Version: 1.0' . "\r\n";
-		$headers .= 'Content-type: text/html; charset=iso-8859-1' . "\r\n";
 
-		// Additional headers
-		$headers .= 'To: Duane <duane@signpost.co.za>' . "\r\n";
-		$headers .= 'From: 10X Dev<info@10x.dev>' . "\r\n";
+		$debug_entry = print_r( $entry, true );
+		$debug_form = print_r( $form, true );
 
 		$message .= "<h2>Entry: </h2><pre>$debug_entry</pre>";
 		$message .= "<h2>Form: </h2><pre>$debug_form</pre>";
 
 		// Mail it
-		mail('duane@signpost.co.za', 'Objects', $message, $headers);
+		mail( $email_to, 'Debug Responses', $message, $headers);
 	}
 
 
