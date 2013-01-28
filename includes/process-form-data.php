@@ -28,6 +28,20 @@
 
 	} // end curl_request( $curlopts )
 
+	function remove_duplicates($array) {
+		$value_count = array();
+		foreach ($array as $value) {
+			$value_count[$value]++;
+		}
+		$return = array();
+		foreach ($value_count as $value => $count) {
+			if ( $count == 1 ) {
+				$return[] = $value;
+			}
+		}
+		return $return;
+	}
+
 	$filename = $argv[1];
 	$args = unserialize( file_get_contents( $filename) );
 
@@ -282,8 +296,7 @@
 					$message .= '<h2>Existing Note Array</h2><pre>' . print_r($existing_note_array, true) . '</pre>';
 				}
 
-				// Sort and merge new notes and existing notes
-				$combined_note_array = asort( array_merge( $new_note_array, $existing_note_array ) );
+				$combined_note_array = array_merge( $new_note_array, $existing_note_array );
 				if ($debug) {
 					$message .= '<h2>Combined Note Array</h2><pre>' . print_r($combined_note_array, true) . '</pre>';
 				}
@@ -291,9 +304,15 @@
 				/**
 				 * Remove all duplicate array elements
 				 * http://stackoverflow.com/questions/3691369/how-can-i-remove-all-duplicates-from-an-array-in-php
-				 * Time isn't an issue because this is a background process
 				 */
-				$merged_note_array = array_diff( $combined_note_array, array_diff_assoc( $combined_note_array, array_unique($combined_note_array) ) );
+				$merged_note_array = remove_duplicates( $combined_note_array );
+
+				// Remove existing array values from merged array
+				foreach ( $existing_note_array as $key => $value ) {
+					if ( ( $key = array_search( $value, $merged_note_array ) ) !== false ) {
+						unset( $merged_note_array[$key] );
+					}
+				}
 
 			} else {
 				$merged_note_array = $new_note_array;

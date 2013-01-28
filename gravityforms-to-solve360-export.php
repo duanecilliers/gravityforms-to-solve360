@@ -269,16 +269,6 @@ class GravityFormsToSolve360Export {
 		$filename = "$temp_dir/temp-$date.txt";
 		file_put_contents( $filename, $args );
 
-		// Shorten variables
-		$user = isset( $this->user ) ? $this->user : false ;
-		$token = isset( $this->token ) ? $this->token : false ;
-		$contacts_url = isset( $this->contacts_url ) ? $this->contacts_url : false ;
-		$to = isset( $this->email_to ) ? $this->email_to : false ;
-		$from = isset( $this->email_from ) ? $this->email_from : false ;
-		$cc = isset( $this->email_cc ) ? $this->email_cc : false ;
-		$bcc = isset( $this->email_bcc ) ? $this->email_bcc : false ;
-		$debug = $this->debug;
-
 		// Initiate background process
 		$process_file = plugin_dir_path( __FILE__ ) . 'includes/process-form-data.php';
 		$background_process = shell_exec( "php $process_file $filename > /dev/null 2>/dev/null &" );
