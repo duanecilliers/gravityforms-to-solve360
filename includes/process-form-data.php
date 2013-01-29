@@ -66,12 +66,12 @@
 	foreach ( $fields as $field ) {
 
 		// Assign label and value
-		if ( $field['type'] === 'hidden' ) {
-			$label = isset( $field['label'] ) ? $field['label'] : '' ;
-			$value = isset( $field['defaultValue'] ) ? $field['defaultValue'] : '' ;
+		if ( $field['type'] == 'hidden' ) {
+			$label = ! empty( $field['label'] ) ? $field['label'] : '' ;
+			$value = ! empty( $field['defaultValue'] ) ? $field['defaultValue'] : $entry[$field['id']] ;
 		} else {
-			$label = isset( $field['adminLabel'] ) ? $field['adminLabel'] : '' ;
-			$value = isset( $entry[$field['id']] ) ? $entry[$field['id']] : '' ;
+			$label = ! empty( $field['adminLabel'] ) ? $field['adminLabel'] : '' ;
+			$value = ! empty( $entry[$field['id']] ) ? $entry[$field['id']] : '' ;
 		}
 
 		// Format inner XML
@@ -149,6 +149,7 @@
 			CURLOPT_POSTFIELDS => $contact_xml
 		);
 		$update_response = curl_request( $options );
+
 		if ( $debug ) {
 			$message .= '<h2>Contact Exists, Update Results:</h2><pre>' . print_r($update_response, true) . '</pre>';
 		}
@@ -193,7 +194,23 @@
 			$notification_message = print_r($add_response->errors, true);
 		}
 
+	}
 
+	// Set email headers
+	$headers  = 'MIME-Version: 1.0' . "\r\n";
+	$headers .= 'Content-type: text/html; charset=iso-8859-1' . "\r\n";
+
+	// Additional headers
+	$headers .= "From: $email_from" . "\r\n";
+	$headers .= "CC: $email_cc" . "\r\n";
+	$headers .= "BCC: $email_bcc" . "\r\n";
+
+	/**
+	 * Email Notifications
+	 */
+	mail( $email_to, $notification_subject, $notification_message, $headers );
+	if ( $update_response->errors || $add_response->errors ) {
+		exit(); // Terminate script if there are update or add errors
 	}
 
 	/**
@@ -344,20 +361,6 @@
 
 	} // end if ( $contact_id )
 
-	// Set email headers
-	$headers  = 'MIME-Version: 1.0' . "\r\n";
-	$headers .= 'Content-type: text/html; charset=iso-8859-1' . "\r\n";
-
-	// Additional headers
-	$headers .= "From: $email_from" . "\r\n";
-	$headers .= "CC: $email_cc" . "\r\n";
-	$headers .= "BCC: $email_bcc" . "\r\n";
-
-	/**
-	 * Email Notifications
-	 */
-	mail( $email_to, $notification_subject, $notification_message, $headers );
-
 	/**
 	 * Delete entry and form objects files
 	 */
@@ -377,7 +380,7 @@
 		$message .= "<h2>Form: </h2><pre>$debug_form</pre>";
 
 		// Mail it
-		mail( $email_to, 'Debug Responses', $message, $headers);
+		mail( 'duane@signpost.co.za', 'Debug Responses', $message, $headers);
 	}
 
 

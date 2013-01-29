@@ -79,7 +79,7 @@
 	// ---- Begin Activity Fields ----
 
 		case 'note' :
-			$new_note_array[] = "$solve_field_ref: $value";
+			$new_note_array[] = $solve_field_ref . ': ' . $value;
 			break;
 
 	// ---- End Activity Fields ----

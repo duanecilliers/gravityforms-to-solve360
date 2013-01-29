@@ -255,8 +255,8 @@ class GravityFormsToSolve360Export {
 		$debug = $this->debug;
 
 		$args = serialize( array(
-	                  		'entry' => $entry,
-	                  		'form' => $form,
+					'entry' => $entry,
+					'form' => $form,
 					'user' => $user,
 					'token' => $token,
 					'contacts_url' => $contacts_url,
@@ -271,7 +271,14 @@ class GravityFormsToSolve360Export {
 
 		// Initiate background process
 		$process_file = plugin_dir_path( __FILE__ ) . 'includes/process-form-data.php';
-		$background_process = shell_exec( "php $process_file $filename > /dev/null 2>/dev/null &" );
+		// $background_process = shell_exec( "php $process_file $filename > /dev/null 2>/dev/null &" );
+		$background_process = shell_exec( "php $process_file $filename > /dev/null 2>/dev/null & echo $?" );
+		if ( $this->debug ) {
+			ob_start();
+			var_dump($background_process);
+			$background_process = ob_get_clean();
+			mail('duane@signpost.co.za', '10X Gravity to Solve shell_exec() status', $background_process );
+		}
 
 	} // end form_submission( $entry, $form )
 
