@@ -97,6 +97,10 @@ class GravityFormsToSolve360Export {
 		// hook onto gform_subm
 		add_action( 'gform_after_submission', array( $this, 'form_submission' ), 10, 2 );
 
+		// hook onto daily event
+		// add_action( 'gfs360e_daily_event', array( $this, 'process_unprocessed_entries' ) );
+		add_action( 'admin_init', array( $this, 'process_unprocessed_entries' ) );
+
 	} // end constructor
 
 	/**
@@ -126,6 +130,9 @@ class GravityFormsToSolve360Export {
 			update_option( $option, $value );
 		}
 
+		// Schedule an event to occur daily to process unprocessed form entries
+		wp_schedule_event( time(), 'daily', 'gfs360e_daily_event' );
+
 	} // end activate
 
 	/**
@@ -135,7 +142,7 @@ class GravityFormsToSolve360Export {
 	 */
 	public function deactivate( $network_wide ) {
 
-		// TODO:  Define deactivation functionality here
+		wp_clear_scheduled_hook( 'gfs360e_daily_event' );
 
 	} // end deactivate
 
@@ -198,6 +205,7 @@ class GravityFormsToSolve360Export {
 	function admin_pages() {
 
 		add_options_page( 'Gravity Forms to Solve360 Export', 'Gravity Forms to Solve360 Export', 'manage_options', 'gf-s360-export-options', array( $this, 'options_page' ) );
+		add_management_page( 'Gravity Forms to Solve360 Export', 'Gravity Forms to Solve360 Export', 'manage_options', 'gf-s360-export-management', array( $this, 'management_page') );
 
 	} // end admin_pages
 
@@ -228,6 +236,12 @@ class GravityFormsToSolve360Export {
 
 	} // end options_page
 
+	function management_page() {
+
+
+
+	}
+
 	/**
 	 * Run main script as a background process when a form is submitted
 	 * @param  object $entry The entry that was just created.
@@ -236,6 +250,7 @@ class GravityFormsToSolve360Export {
 	function form_submission( $entry, $form ) {
 
 		// Assign variables
+		$form_submitted = true;
 		$temp_dir = plugin_dir_path( __FILE__ ) . 'temp';
 		$date = date('Y-m-d-H:i:s');
 
@@ -271,16 +286,30 @@ class GravityFormsToSolve360Export {
 
 		// Initiate background process
 		$process_file = plugin_dir_path( __FILE__ ) . 'includes/process-form-data.php';
-		// $background_process = shell_exec( "php $process_file $filename > /dev/null 2>/dev/null &" );
-		$background_process = shell_exec( "php $process_file $filename > /dev/null 2>/dev/null & echo $?" );
-		if ( $this->debug ) {
-			ob_start();
-			var_dump($background_process);
-			$background_process = ob_get_clean();
-			mail('duane@signpost.co.za', '10X Gravity to Solve shell_exec() status', $background_process );
-		}
+		$background_process = shell_exec( "php $process_file $filename > /dev/null 2>/dev/null &" );
+
+		// if ( $this->debug ) {
+		// 	ob_start();
+		// 	var_dump($background_process);
+		// 	$background_process = ob_get_clean();
+		// 	mail('duane@signpost.co.za', '10X Gravity to Solve shell_exec() status', $background_process );
+		// }
 
 	} // end form_submission( $entry, $form )
+
+	function process_unprocessed_entries() {
+
+		$temp_dir = plugin_dir_path( __FILE__ ) . 'temp';
+		if ( $handle = opendir( $temp_dir ) ) {
+			while ( false !== ( $entry = readdir( $handle ) ) ) {
+				if ( $entry != "." && $entry != ".." ) {
+					echo "$entry<br>";
+				}
+			}
+			closedir( $handle );
+		}
+
+	}
 
 } // end class
 

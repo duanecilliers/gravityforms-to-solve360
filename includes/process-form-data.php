@@ -29,6 +29,7 @@
 	} // end curl_request( $curlopts )
 
 	function remove_duplicates($array) {
+
 		$value_count = array();
 		foreach ($array as $value) {
 			$value_count[$value]++;
@@ -40,10 +41,16 @@
 			}
 		}
 		return $return;
+
+	} // end remove_duplicates($array)
+
+	if ( $form_submitted == true ) {
+		$filename = $argv[1];
+	} else {
+
 	}
 
-	$filename = $argv[1];
-	$args = unserialize( file_get_contents( $filename) );
+	$args = unserialize( file_get_contents( $filename ) );
 
 	$entry = unserialize( $args['entry'] );
 	$form = unserialize( $args['form'] );
