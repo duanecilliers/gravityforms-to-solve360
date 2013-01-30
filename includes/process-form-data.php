@@ -44,13 +44,13 @@
 
 	} // end remove_duplicates($array)
 
-	if ( $form_submitted == true ) {
-		$filename = $argv[1];
-	} else {
+	$entry_file = $argv[1];
+	$output_file = $argv[2];
+	$pid_file = $argv[3];
 
-	}
+	$args = unserialize( file_get_contents( $entry_file ) );
 
-	$args = unserialize( file_get_contents( $filename ) );
+	// die('die modo');
 
 	$entry = unserialize( $args['entry'] );
 	$form = unserialize( $args['form'] );
@@ -369,9 +369,11 @@
 	} // end if ( $contact_id )
 
 	/**
-	 * Delete entry and form objects files
+	 * Delete temp files
 	 */
-	unlink( $filename );
+	unlink( $entry_file );
+	unlink( $output_file );
+	unlink( $pid_file );
 
 	/**
 	 * Debug with email as the script runs in the background, output can't be seen on screen

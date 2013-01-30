@@ -5,6 +5,7 @@
  * @subpackage plugin.php
  * @version 0.1
  * @todo Cleanup code
+ * @todo Refine process_entries() function
  * @todo Improve error handling
  * @todo Only delete temp files if there were no Solve response errors
  * @todo Investigate when 'ownership' is required
@@ -54,6 +55,9 @@ class GravityFormsToSolve360Export {
 	public $email_from;
 	public $email_cc;
 	public $email_bcc;
+	public $entries_dir;
+	public $output_dir;
+	public $pid_dir;
 
 	/*--------------------------------------------*
 	 * Constructor
@@ -74,6 +78,18 @@ class GravityFormsToSolve360Export {
 		$this->email_from = get_option( 'gf_s360_export_from' );;
 		$this->email_cc = get_option( 'gf_s360_export_cc' );
 		$this->email_bcc = get_option( 'gf_s360_export_bcc' );
+		$this->entries_dir = plugin_dir_path( __FILE__ ) . 'entries';
+		$this->output_dir = plugin_dir_path( __FILE__ ) . 'output';
+		$this->pid_dir = plugin_dir_path( __FILE__ ) . 'pid';
+
+		if ( ! is_dir( $this->entries_dir ) )
+			mkdir( $this->entries_dir );
+
+		if ( ! is_dir( $this->output_dir ) )
+			mkdir( $this->output_dir );
+
+		if ( ! is_dir( $this->pid_dir ) )
+			mkdir( $this->pid_dir );
 
 		// Check that is_plugin_active() function exists before using it or deactivate_plugins()
 		if ( ! function_exists('is_plugin_active' ) )
@@ -98,8 +114,7 @@ class GravityFormsToSolve360Export {
 		add_action( 'gform_after_submission', array( $this, 'form_submission' ), 10, 2 );
 
 		// hook onto daily event
-		// add_action( 'gfs360e_daily_event', array( $this, 'process_unprocessed_entries' ) );
-		add_action( 'admin_init', array( $this, 'process_unprocessed_entries' ) );
+		add_action( 'gfs360e_daily_event', array( $this, 'process_entries' ) );
 
 	} // end constructor
 
@@ -238,9 +253,9 @@ class GravityFormsToSolve360Export {
 
 	function management_page() {
 
+		$this->process_entries();
 
-
-	}
+	} // end management_page()
 
 	/**
 	 * Run main script as a background process when a form is submitted
@@ -250,14 +265,6 @@ class GravityFormsToSolve360Export {
 	function form_submission( $entry, $form ) {
 
 		// Assign variables
-		$form_submitted = true;
-		$temp_dir = plugin_dir_path( __FILE__ ) . 'temp';
-		$date = date('Y-m-d-H:i:s');
-
-		// Create temp directory if it doesn't already exist
-		if ( ! is_dir( $temp_dir ) )
-			mkdir( $temp_dir );
-
 		$entry = serialize($entry);
 		$form = serialize($form);
 		$user = isset( $this->user ) ? $this->user : false ;
@@ -281,35 +288,105 @@ class GravityFormsToSolve360Export {
 					'bcc' => $bcc,
 					'debug' => $debug
 				) );
-		$filename = "$temp_dir/temp-$date.txt";
-		file_put_contents( $filename, $args );
 
-		// Initiate background process
 		$process_file = plugin_dir_path( __FILE__ ) . 'includes/process-form-data.php';
-		$background_process = shell_exec( "php $process_file $filename > /dev/null 2>/dev/null &" );
+		$date = date('Y-m-d-H:i:s');
 
-		// if ( $this->debug ) {
-		// 	ob_start();
-		// 	var_dump($background_process);
-		// 	$background_process = ob_get_clean();
-		// 	mail('duane@signpost.co.za', '10X Gravity to Solve shell_exec() status', $background_process );
-		// }
+		$entries_dir = $this->entries_dir . '/submission';
+		if ( ! is_dir( $entries_dir ) )
+			mkdir( $entries_dir );
+		$entry_file = "$entries_dir/$date.txt";
+
+		$output_dir = $this->output_dir . '/submission';
+		if ( ! is_dir( $output_dir ) )
+			mkdir( $output_dir );
+		$output_file = "$output_dir/$date.txt";
+
+		$pid_dir = $this->pid_dir . '/submission';
+		if ( ! is_dir( $pid_dir ) )
+			mkdir( $pid_dir );
+		$pid_file = "$pid_dir/$date.txt";
+
+		file_put_contents( $entry_file, $args );
+
+		// Pass $entry_file, $output_file and $pid_file as arguments
+		$cmd = "php $process_file $entry_file $output_file $pid_file";
+
+		exec( sprintf( '%s > %s 2>&1 & echo $! >> %s', $cmd, $output_file, $pid_file ) );
 
 	} // end form_submission( $entry, $form )
 
-	function process_unprocessed_entries() {
+	/**
+	 * Loops over /entries/submission/--files-- (aka form entries that haven't been successfully exported to Solve360)
+	 * if a submission process is currently running, skip that entry
+	 * else re-run process-form-data.php via exec(), print output to /output/cron/ and pid to /pid/cron/ with the current date
+	 * if output file is empty, delete it along with the respective pid file
+	 */
+	function process_entries() {
 
-		$temp_dir = plugin_dir_path( __FILE__ ) . 'temp';
-		if ( $handle = opendir( $temp_dir ) ) {
-			while ( false !== ( $entry = readdir( $handle ) ) ) {
-				if ( $entry != "." && $entry != ".." ) {
-					echo "$entry<br>";
+		$submission_pid_dir = $this->pid_dir . '/submission';
+		$submission_output_dir = $this->output_dir . '/submission';
+		$submission_entries_dir = $this->entries_dir . '/submission';
+
+		$cron_pid_dir = $this->pid_dir . '/cron';
+		$cron_output_dir = $this->output_dir . '/cron';
+
+		if ( ! is_dir( $cron_pid_dir ) )
+			mkdir( $cron_pid_dir );
+
+		if ( ! is_dir( $cron_output_dir ) )
+			mkdir( $cron_output_dir );
+
+		$process_file = plugin_dir_path( __FILE__ ) . 'includes/process-form-data.php';
+
+		if ( $handle = opendir( $submission_pid_dir ) ) {
+			while ( false !== ( $entry = readdir( $handle ) ) ) { // loop through submission pids, while the pid directory is not empty
+				if ( $entry != '.' && $entry != '..' ) {
+
+					// if a form submission process isn't running for the entry, re-run process-form-data.php
+					if ( ! $this->is_running( file_get_contents( "$submission_pid_dir/$entry" ) ) ) {
+
+						$date = date('Y-m-d-H:i:s');
+
+						// Assign related files to variables
+						$submission_entry_file = "$submission_entries_dir/$entry";
+						$submission_output_file = "$submission_output_dir/$entry";
+						$submission_pid_file = "$submission_pid_dir/$entry";
+
+						// Cron exec() output and pid files
+						$cron_output_file = "$cron_output_dir/$date.txt";
+						$cron_pid_file = "$cron_pid_dir/$date.txt";
+
+						// Pass $submission_entry_file and associated $submission_output_file and $submission_pid_file as arguments
+						$cmd = "php $process_file $submission_entry_file $submission_output_file $submission_pid_file";
+						exec( sprintf( '%s > %s 2>&1 & echo $! >> %s', $cmd, $cron_output_file, $cron_pid_file ) );
+
+						if ( 0 == filesize( $cron_output_file ) ) {
+							unlink( $cron_output_file );
+							unlink( $cron_pid_file );
+						}
+
+					}
+
 				}
 			}
 			closedir( $handle );
 		}
 
-	}
+	} // end process_entries()
+
+	function is_running( $pid ) {
+
+		try {
+			$result = shell_exec( sprintf( "ps %d", $pid ) );
+			if ( count( preg_split( "/\n/", $result ) ) > 2 ) {
+				return true;
+			}
+		} catch( Exception $e ) {}
+
+		return false;
+
+	} // end is_running( $pid )
 
 } // end class
 
