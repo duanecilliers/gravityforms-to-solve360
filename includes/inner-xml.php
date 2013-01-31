@@ -43,9 +43,6 @@
 		case 'assignedto':
 			$contact_inner_xml .= "<assignedto>$value</assignedto>";
 			break;
-		case 'website':
-			$contact_inner_xml .= "<website>$value</website>";
-			break;
 		case 'businessphonemain':
 			$contact_inner_xml .= "<businessphonemain>$value</businessphonemain>";
 			break;
@@ -80,6 +77,9 @@
 
 		case 'note' :
 			$new_note_array[] = $solve_field_ref . ': ' . $value;
+			break;
+		case 'website' :
+			$new_website_array[] = array('caption' => $solve_field_ref, 'url' => $value);
 			break;
 
 	// ---- End Activity Fields ----
