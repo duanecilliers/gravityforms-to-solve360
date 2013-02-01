@@ -97,7 +97,15 @@
 
 	} // end foreach ( $fields as $field )
 
-	$contact_inner_xml .= "<categories><add>$category_xml</add></categories>";
+	if ( empty( $contact_inner_xml ) ) {
+		unlink( $entry_file );
+		unlink( $output_file );
+		unlink( $pid_file );
+		exit();
+	}
+
+	if ( ! empty( $category_xml ) )
+		$contact_inner_xml .= "<categories><add>$category_xml</add></categories>";
 
 	/**
 	 * Setup the contact's XML string
@@ -383,34 +391,34 @@
 
 			// if ( $existing_website_array ) {
 
-			// 	if ($debug) {
-			// 		$message .= '<h2>Existing Website Array</h2><pre>' . print_r($existing_website_array, true) . '</pre>';
-			// 	}
+			//  if ($debug) {
+			//    $message .= '<h2>Existing Website Array</h2><pre>' . print_r($existing_website_array, true) . '</pre>';
+			//  }
 
-			// 	$combined_website_array = array_merge( $new_website_array, $existing_website_array );
-			// 	if ($debug) {
-			// 		$message .= '<h2>Combined Website Array</h2><pre>' . print_r($combined_website_array, true) . '</pre>';
-			// 	}
+			//  $combined_website_array = array_merge( $new_website_array, $existing_website_array );
+			//  if ($debug) {
+			//    $message .= '<h2>Combined Website Array</h2><pre>' . print_r($combined_website_array, true) . '</pre>';
+			//  }
 
-			// 	/**
-			// 	 * Remove all duplicate array elements
-			// 	 * http://stackoverflow.com/questions/3691369/how-can-i-remove-all-duplicates-from-an-array-in-php
-			// 	 */
-			// 	$merged_website_array = remove_duplicates( $combined_website_array );
+			//  /**
+			//   * Remove all duplicate array elements
+			//   * http://stackoverflow.com/questions/3691369/how-can-i-remove-all-duplicates-from-an-array-in-php
+			//   */
+			//  $merged_website_array = remove_duplicates( $combined_website_array );
 
-			// 	// Remove existing array values from merged array
-			// 	foreach ( $existing_website_array as $key => $value ) {
-			// 		if ( ( $key = array_search( $value, $merged_website_array ) ) !== false ) {
-			// 			unset( $merged_website_array[$key] );
-			// 		}
-			// 	}
+			//  // Remove existing array values from merged array
+			//  foreach ( $existing_website_array as $key => $value ) {
+			//    if ( ( $key = array_search( $value, $merged_website_array ) ) !== false ) {
+			//      unset( $merged_website_array[$key] );
+			//    }
+			//  }
 
 			// } else {
-			// 	$merged_website_array = $new_website_array;
+			//  $merged_website_array = $new_website_array;
 			// }
 
 			// if ( $debug ) {
-			// 	$message .= "<h2>Merged Website Array</h2><pre>" . print_r($merged_website_array, true) . "</pre>";
+			//  $message .= "<h2>Merged Website Array</h2><pre>" . print_r($merged_website_array, true) . "</pre>";
 			// }
 
 			// Post Websites to Solve360

@@ -85,7 +85,7 @@
 	// ---- End Activity Fields ----
 
 		default:
-			# code...
+			$contact_inner_xml .= '';
 			break;
 	}
 ?>
