@@ -110,8 +110,9 @@ class GravityFormsToSolve360Export {
 		add_action( 'admin_menu', array( $this, 'admin_pages' ) );
 		add_action( 'admin_notices', array( $this, 'admin_notices' ) );
 
-		// hook onto gform_subm
-		add_action( 'gform_after_submission', array( $this, 'form_submission' ), 10, 2 );
+		// hook onto gform_after_submission with a priority of 20 to allow
+		// other functions to manipulate form data prior to saving to temp file
+		add_action( 'gform_after_submission', array( $this, 'form_submission' ), 20, 2 );
 
 		// hook onto daily event
 		add_action( 'gfs360e_daily_event', array( $this, 'process_entries' ) );

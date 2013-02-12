@@ -97,6 +97,7 @@
 
 	} // end foreach ( $fields as $field )
 
+	// Delete temp files and kill script if there's no solve360 labels
 	if ( empty( $contact_inner_xml ) ) {
 		unlink( $entry_file );
 		unlink( $output_file );
@@ -261,7 +262,7 @@
 			$existing_note_array = array();
 			$merged_note_array = array();
 
-			$existing_website_array = array();
+			// $existing_website_array = array();
 			$merged_website_array = array();
 
 			// Loop through current contact's activities
@@ -281,7 +282,7 @@
 							break;
 						case 7:
 							$has_website = true;
-							array_push( $existing_website_array, array( 'caption' => (string) $activity->fields->caption, 'url' => (string) $activity->fields->url ) );
+							// array_push( $existing_website_array, array( 'caption' => (string) $activity->fields->caption, 'url' => (string) $activity->fields->url ) );
 							break;
 						case 3:
 							$has_note = true;
@@ -373,7 +374,7 @@
 					);
 					$note_response = curl_request( $options );
 					if ( $debug ) {
-						echo '<h2>Note Activity response:</h2><pre>' . print_r($note_response, true) . '</pre>';
+						$message .= '<h2>Note Activity response:</h2><pre>' . print_r($note_response, true) . '</pre>';
 					}
 				}
 			} // end if ( count($merged_note_array) > 0 )
@@ -391,34 +392,34 @@
 
 			// if ( $existing_website_array ) {
 
-			//  if ($debug) {
-			//    $message .= '<h2>Existing Website Array</h2><pre>' . print_r($existing_website_array, true) . '</pre>';
-			//  }
+			// 	if ($debug) {
+			// 		$message .= '<h2>Existing Website Array</h2><pre>' . print_r($existing_website_array, true) . '</pre>';
+			// 	}
 
-			//  $combined_website_array = array_merge( $new_website_array, $existing_website_array );
-			//  if ($debug) {
-			//    $message .= '<h2>Combined Website Array</h2><pre>' . print_r($combined_website_array, true) . '</pre>';
-			//  }
+			// 	$combined_website_array = array_merge( $new_website_array, $existing_website_array );
+			// 	if ($debug) {
+			// 		$message .= '<h2>Combined Website Array</h2><pre>' . print_r($combined_website_array, true) . '</pre>';
+			// 	}
 
-			//  /**
-			//   * Remove all duplicate array elements
-			//   * http://stackoverflow.com/questions/3691369/how-can-i-remove-all-duplicates-from-an-array-in-php
-			//   */
-			//  $merged_website_array = remove_duplicates( $combined_website_array );
+			// 	/**
+			// 	 * Remove all duplicate array elements
+			// 	 * http://stackoverflow.com/questions/3691369/how-can-i-remove-all-duplicates-from-an-array-in-php
+			// 	 */
+			// 	$merged_website_array = remove_duplicates( $combined_website_array );
 
-			//  // Remove existing array values from merged array
-			//  foreach ( $existing_website_array as $key => $value ) {
-			//    if ( ( $key = array_search( $value, $merged_website_array ) ) !== false ) {
-			//      unset( $merged_website_array[$key] );
-			//    }
-			//  }
+			// 	// Remove existing array values from merged array
+			// 	foreach ( $existing_website_array as $key => $value ) {
+			// 		if ( ( $key = array_search( $value, $merged_website_array ) ) !== false ) {
+			// 			unset( $merged_website_array[$key] );
+			// 		}
+			// 	}
 
 			// } else {
-			//  $merged_website_array = $new_website_array;
+			// 	$merged_website_array = $new_website_array;
 			// }
 
 			// if ( $debug ) {
-			//  $message .= "<h2>Merged Website Array</h2><pre>" . print_r($merged_website_array, true) . "</pre>";
+			// 	$message .= "<h2>Merged Website Array</h2><pre>" . print_r($merged_website_array, true) . "</pre>";
 			// }
 
 			// Post Websites to Solve360
@@ -436,7 +437,7 @@
 					);
 					$website_response = curl_request( $options );
 					if ( $debug ) {
-						echo '<h2>Website Activity response:</h2><pre>' . print_r($website_response, true) . '</pre>';
+						$message .= '<h2>Website Activity response:</h2><pre>' . print_r($website_response, true) . '</pre>';
 					}
 				}
 			} // end if ( count($merged_website_array) > 0 )

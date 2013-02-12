@@ -79,7 +79,7 @@
 			$new_note_array[] = $solve_field_ref . ': ' . $value;
 			break;
 		case 'website' :
-			$new_website_array[] = array('caption' => $solve_field_ref, 'url' => $value);
+			$new_website_array[] = array( 'caption' => $solve_field_ref, 'url' => $value );
 			break;
 
 	// ---- End Activity Fields ----
